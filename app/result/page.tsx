@@ -19,7 +19,6 @@ const fetchSpotifyToken = async () => {
 const fetchSongs = async (token: string, moodQuery: { genre: string; keyword: string }) => {
   const params = new URLSearchParams({
     seed_genres: moodQuery.genre,
-    min_popularity: '60', // filter for more popular tracks
     limit: '10',
   });
   const url = `https://api.spotify.com/v1/recommendations?${params.toString()}`;
