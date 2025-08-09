@@ -1,8 +1,6 @@
 "use client";
 
-import { SkipForward } from "lucide-react"
-import { SkipBack } from "lucide-react"
-import { Play } from "lucide-react"
+import { Repeat, Repeat1, Shuffle, ChevronUp, ChevronDown, SkipBack, SkipForward, Play, Pause } from "lucide-react"
 import { clsx } from 'clsx';
 import Volumer from '@/components/VolumeSlider'
 import Slider from '@mui/material/Slider';
@@ -21,10 +19,54 @@ const TinyText = styled(Typography)({
   fontWeight: 500,
   letterSpacing: 0.2,
 });
+const PlayButton = () => {
+    const [play, setplay] = React.useState(false)
+    return (
+        <button
+            aria-label="Toggle play"
+            onClick={() => {
+                setplay(p => !p);
+            }}
+            className={play ? "text-primary items-center justify-center" : "text-gray-500 items-center justify-center"}
+        >
+            {play ? <Play size={22} /> : <Pause size={22} />}
+        </button>
+    )
+}
+
+const RepeatButton = () => {
+    const [repeat, setRepeat] = React.useState(false);
+    return (
+        <button
+            aria-label="Toggle repeat"
+            onClick={() => setRepeat(r => !r)}
+            className={repeat ? "text-primary items-center justify-center" : "text-primary items-center justify-center"}
+        >
+            {repeat ? <Repeat1 size={22} /> : <Repeat size={22} />}
+        </button>
+    );
+};
 
 export const Player = ({className}: Props) => {
-      const duration = 200; // seconds
-      const [position, setPosition] = React.useState(32);
+    const duration = 200; // seconds
+    const [position, setPosition] = React.useState(32);
+    const [play, setPlay] = React.useState(false);
+
+    React.useEffect(() => {
+        if (!play) return;
+        if (position >= duration) return;
+        const interval = setInterval(() => {
+            setPosition(pos => {
+                if (pos < duration) {
+                    return pos + 1;
+                } else {
+                    return pos;
+                }
+            });
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [play, position, duration]);
+
     function formatDuration(position: number): React.ReactNode {
         const minutes = Math.floor(position / 60);
         const seconds = Math.floor(position % 60)
@@ -34,7 +76,7 @@ export const Player = ({className}: Props) => {
     }
 
     return (
-        <section className={clsx("bg-slate-100 rounded-t shadow justify-around sticky bottom-0 z-50 flex", className)}>
+        <section className={clsx("bg-slate-100 rounded-t shadow justify-around w-screen sticky bottom-0 z-50 flex", className)}>
             <section className="flex-start align-left gap-4">
                 <div className="flex-col items-left gap-4 p-4">
                     <h3>Nothing Yet</h3>
@@ -43,18 +85,25 @@ export const Player = ({className}: Props) => {
             </section>
             <section>
                 <div className="flex items-center justify-center gap-4 p-4">
-                    <SkipBack />
-                    <Play />
-                    <SkipForward/>  
+                    
+                    <SkipBack className="hover:text-primary" />
+                    <button
+                        aria-label={play ? "Pause" : "Play"}
+                        onClick={() => setPlay(p => !p)}
+                        className={play ? "text-primary" : "text-gray-700"}
+                    >
+                        {play ? <Pause size={28} /> : <Play size={28} />}
+                    </button>
+                    <SkipForward className="hover:text-primary"/>  
                 </div>
                 <Slider
                     aria-label="time-indicator"
-                    size="small"
+                    size="medium"
                     value={position}
                     min={0}
                     step={1}
                     max={duration}
-                    onChange={(_, value) => setPosition(value)}
+                    onChange={(_, value) => setPosition(value as number)}
                     sx={(t) => ({
                         color: 'rgba(0,0,0,0.87)',
                         height: 4,
@@ -83,7 +132,7 @@ export const Player = ({className}: Props) => {
                         color: '#fff',
                         }),
                     })}
-                    />
+                />
                 <Box
                     sx={{
                     display: 'flex',
@@ -96,13 +145,16 @@ export const Player = ({className}: Props) => {
         </Box>
             </section>
             <section>
-                <div className="w-64 flex items-center justify-between p-4">
+                <div className="w-90 flex items-center justify-between gap-8 p-2">
                     <Volumer/>
+                    <div className="justify-between items-center flex gap-4">
+                        <RepeatButton/>
+                        <Shuffle/>
+                        <ChevronUp/>
+                    </div>
 
                 </div>
             </section>
-            
-
         </section>
     )
 }
