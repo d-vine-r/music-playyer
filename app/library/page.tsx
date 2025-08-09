@@ -1,7 +1,6 @@
-
 import Link from "next/link";
 import { Himage } from "@/components/Gallery"
-import { getSquarePhotos } from '@/lib/mood';
+import { getSquarePhotos } from '@/lib/pexels';
 
 
 
