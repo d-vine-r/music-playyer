@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { getSquarePhotos } from '@/lib/mood';
+import { getSquarePhotos } from '@/lib/pexels';
 import {
   Table,
   TableBody,
