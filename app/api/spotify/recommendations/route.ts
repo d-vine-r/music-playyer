@@ -1,72 +1,81 @@
 import { NextResponse } from 'next/server'
 
-// Server-side route to fetch Spotify recommendations using Client Credentials flow
-// Expects JSON body: { seed_genres: string[], market?: string, limit?: number }
+// Ensure Node.js runtime for server-only features like Buffer
+export const runtime = 'nodejs'
 
-async function getSpotifyAccessToken(): Promise<string> {
+interface RecommendationRequest {
+  seed_genres: string[]
+  limit?: number
+}
+
+// Fetch Spotify access token via Client Credentials Flow
+async function fetchToken(): Promise<string> {
   const clientId = process.env.SPOTIFY_CLIENT_ID
   const clientSecret = process.env.SPOTIFY_CLIENT_SECRET
-
   if (!clientId || !clientSecret) {
-    throw new Error('Missing SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET env vars')
+    throw new Error('Missing Spotify credentials in environment')
   }
-
-  const res = await fetch('https://accounts.spotify.com/api/token', {
+  const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+  const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
-      Authorization: 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64'),
+      Authorization: `Basic ${basic}`,
     },
-    body: 'grant_type=client_credentials',
-    cache: 'no-store',
+    body: new URLSearchParams({ grant_type: 'client_credentials' }),
   })
-
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Spotify token error ${res.status}: ${text}`)
+  if (!tokenRes.ok) {
+    const errText = await tokenRes.text()
+    throw new Error(`Token fetch failed: ${errText}`)
   }
-
-  const data = await res.json()
-  return data.access_token as string
+  const { access_token } = await tokenRes.json()
+  return access_token
 }
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const body = await req.json()
-    const seedGenres: string[] = Array.isArray(body?.seed_genres) ? body.seed_genres.filter(Boolean) : []
-    const limit: number = Number(body?.limit) || 10
-    const market: string | undefined = typeof body?.market === 'string' ? body.market : undefined
+    const { seed_genres, limit = 10 } = (await request.json()) as RecommendationRequest
+    if (!seed_genres || seed_genres.length === 0) {
+      return NextResponse.json({ error: 'No seed_genres provided' }, { status: 400 })
+    }
+    const token = await fetchToken()
 
-    if (seedGenres.length === 0) {
-      return NextResponse.json({ error: 'seed_genres is required' }, { status: 400 })
+    // Search tracks via Spotify Search endpoint (using mood seed genres)
+    const query = seed_genres.join(' ')
+    const searchRes = await fetch(
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    if (!searchRes.ok) {
+      const errText = await searchRes.text()
+      throw new Error(`Search fetch failed: ${errText}`)
+    }
+    const searchJson = await searchRes.json()
+    const tracks: any[] = searchJson.tracks?.items || []
+
+    // Fetch audio features
+    const ids = tracks.map(t => t.id).join(',')
+    let featuresMap: Record<string, any> = {}
+    if (ids) {
+      const featRes = await fetch(`https://api.spotify.com/v1/audio-features?ids=${ids}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (featRes.ok) {
+        const featJson = await featRes.json()
+        featJson.audio_features.forEach((f: any) => {
+          if (f && f.id) featuresMap[f.id] = f
+        })
+      }
     }
 
-    const accessToken = await getSpotifyAccessToken()
-
-    const params = new URLSearchParams({
-      seed_genres: seedGenres.slice(0, 3).join(','),
-      limit: String(Math.min(Math.max(limit, 1), 50)),
-    })
-    if (market) params.set('market', market)
-
-    const url = `https://api.spotify.com/v1/recommendations?${params.toString()}`
-
-    const recRes = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: 'no-store',
-    })
-
-    const text = await recRes.text()
-    if (!recRes.ok) {
-      return NextResponse.json({ error: text || 'Spotify API error' }, { status: recRes.status })
-    }
-
-    const data = JSON.parse(text)
-    return NextResponse.json({ tracks: data.tracks ?? [] })
+    // Combine
+    const enriched = tracks.map(t => ({
+      ...t,
+      audio_features: featuresMap[t.id] || null,
+    }))
+    return NextResponse.json({ tracks: enriched })
   } catch (err: any) {
-    return NextResponse.json({ error: err?.message ?? 'Unknown error' }, { status: 500 })
+    console.error('Recommendations route error:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
-

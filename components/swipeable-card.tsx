@@ -93,7 +93,7 @@ export function SwipeableCard({ song, onSwipeLeftAction, onSwipeRightAction, onP
           {/* Album Art */}
           <div className="relative">
             <img
-              src={song.albumArt || '/placeholder.svg'}
+              src={song.albumArt || '/placeholder.jpg'}
               alt={`${song.album} artwork`}
               className="w-full h-80 object-cover"
               draggable={false}
