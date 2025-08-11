@@ -4,21 +4,28 @@ import React, { useEffect, useState } from 'react';
 import { BackgroundGradientAnimation } from '@/components/ui/background-gradient-animation';
 import { detectMoodFromText, getSongQueryByMood } from '@/lib/mood';
 
+const SPOTIFY_CLIENT_ID = '78e9602b9eb94acd82c54578f78170f8';
+const SPOTIFY_CLIENT_SECRET = '06465ec8b4514690863f2a1ba5e9b39c';
+
 const fetchSpotifyToken = async () => {
-  const res = await fetch('/api/spotify/token', { cache: 'no-store' });
-  if (!res.ok) {
-    const text = await res.text();
-    console.error('Failed to fetch Spotify token:', res.status, text);
-    throw new Error('Failed to fetch Spotify token');
-  }
-  const data = await res.json();
-  return data.access_token as string;
+  const response = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization:
+        'Basic ' + btoa(SPOTIFY_CLIENT_ID + ':' + SPOTIFY_CLIENT_SECRET),
+    },
+    body: 'grant_type=client_credentials',
+  });
+  const data = await response.json();
+  return data.access_token;
 };
 
-// Use Recommendations API instead of Search API, with error handling
-const fetchSongs = async (token: string, moodQuery: { genre: string; keyword: string }) => {
+// Use Recommendations API with up to three seed genres
+const fetchSongs = async (token: string, seedGenres: string[]) => {
+  const seed = (seedGenres || []).filter(Boolean).slice(0, 3).join(',');
   const params = new URLSearchParams({
-    seed_genres: moodQuery.genre,
+    seed_genres: seed || 'pop',
     limit: '10',
   });
   const url = `https://api.spotify.com/v1/recommendations?${params.toString()}`;
@@ -41,8 +48,8 @@ export default function ResultPage() {
   const [chatResult, setChatResult] = useState('');
   const [detectedMood, setDetectedMood] = useState('neutral');
   const [songs, setSongs] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
-  
+  const [loading, setLoading] = useState(false);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('Chatresult');
@@ -60,35 +67,17 @@ export default function ResultPage() {
     if (!detectedMood) return;
     const getSongs = async () => {
       setLoading(true);
-            try {
+      try {
         const songQuery = getSongQueryByMood(detectedMood);
         const token = await fetchSpotifyToken();
-        // List of valid Spotify seed genres (partial, add more as needed)
-        const validGenres = [
-          'acoustic', 'afrobeat', 'alt-rock', 'alternative', 'ambient', 'anime', 'black-metal', 'bluegrass',
-          'blues', 'bossanova', 'brazil', 'breakbeat', 'british', 'cantopop', 'chicago-house', 'children',
-          'chill', 'classical', 'club', 'comedy', 'country', 'dance', 'dancehall', 'death-metal', 'deep-house',
-          'detroit-techno', 'disco', 'disney', 'drum-and-bass', 'dub', 'dubstep', 'edm', 'electro', 'electronic',
-          'emo', 'folk', 'forro', 'french', 'funk', 'garage', 'german', 'gospel', 'goth', 'grindcore', 'groove',
-          'grunge', 'guitar', 'happy', 'hard-rock', 'hardcore', 'hardstyle', 'heavy-metal', 'hip-hop', 'holidays',
-          'honky-tonk', 'house', 'idm', 'indian', 'indie', 'indie-pop', 'industrial', 'iranian', 'j-dance',
-          'j-idol', 'j-pop', 'j-rock', 'jazz', 'k-pop', 'kids', 'latin', 'latino', 'malay', 'mandopop', 'metal',
-          'metal-misc', 'metalcore', 'minimal-techno', 'movies', 'mpb', 'new-age', 'new-release', 'opera',
-          'pagode', 'party', 'philippines-opm', 'piano', 'pop', 'pop-film', 'post-dubstep', 'power-pop', 'progressive-house',
-          'psych-rock', 'punk', 'punk-rock', 'r-n-b', 'rainy-day', 'reggae', 'reggaeton', 'road-trip', 'rock',
-          'rock-n-roll', 'rockabilly', 'romance', 'sad', 'salsa', 'samba', 'sertanejo', 'show-tunes', 'singer-songwriter',
-          'ska', 'sleep', 'songwriter', 'soul', 'soundtracks', 'spanish', 'study', 'summer', 'swedish', 'synth-pop',
-          'tango', 'techno', 'trance', 'trip-hop', 'turkish', 'work-out', 'world-music'
-        ];
-        // Find the first valid genre from songQuery.genres
-        const genre = (songQuery.genres.find((g: string) => validGenres.includes(g.toLowerCase())) || 'pop');
-        const tracks = await fetchSongs(token, { genre, keyword: songQuery.keywords[0] });
+        const genres = (songQuery.genres && songQuery.genres.length > 0) ? songQuery.genres.slice(0, 3) : ['pop'];
+        const tracks = await fetchSongs(token, genres);
         setSongs(tracks);
-                      } catch (error) {
+      } catch (error) {
         console.error('Error fetching songs:', error);
       }
       setLoading(false);
-          };
+    };
     getSongs();
   }, [detectedMood]);
 
@@ -98,7 +87,6 @@ export default function ResultPage() {
     }
   };
 
-  
   return (
     <main>
       <BackgroundGradientAnimation>
@@ -135,7 +123,7 @@ export default function ResultPage() {
             ) : (
               <p>No songs found for "{chatResult}" on Spotify.</p>
             )}
-                      </div>
+          </div>
         </div>
       </BackgroundGradientAnimation>
     </main>
