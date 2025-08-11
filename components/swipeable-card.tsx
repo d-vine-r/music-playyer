@@ -8,13 +8,13 @@ import type { Song } from "@/types"
 
 interface SwipeableCardProps {
   song: Song
-  onSwipeLeft: () => void
-  onSwipeRight: () => void
-  onPlayToggle: () => void
+  onSwipeLeftAction: () => void
+  onSwipeRightAction: () => void
+  onPlayToggleAction: () => void
   isPlaying: boolean
 }
 
-export function SwipeableCard({ song, onSwipeLeft, onSwipeRight, onPlayToggle, isPlaying }: SwipeableCardProps) {
+export function SwipeableCard({ song, onSwipeLeftAction, onSwipeRightAction, onPlayToggleAction, isPlaying }: SwipeableCardProps) {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const startPos = useRef({ x: 0, y: 0 })
@@ -35,8 +35,8 @@ export function SwipeableCard({ song, onSwipeLeft, onSwipeRight, onPlayToggle, i
     if (!isDragging) return
     const threshold = 100
     if (Math.abs(dragOffset.x) > threshold) {
-      if (dragOffset.x > 0) onSwipeRight()
-      else onSwipeLeft()
+      if (dragOffset.x > 0) onSwipeRightAction()
+      else onSwipeLeftAction()
     }
     setIsDragging(false)
     setDragOffset({ x: 0, y: 0 })
@@ -103,7 +103,7 @@ export function SwipeableCard({ song, onSwipeLeft, onSwipeRight, onPlayToggle, i
               className="absolute inset-0 flex items-center justify-center bg-black/25 opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
               onClick={e => {
                 e.stopPropagation()
-                onPlayToggle()
+                onPlayToggleAction()
               }}
             >
               <div className="bg-white rounded-full w-16 h-16 flex items-center justify-center">

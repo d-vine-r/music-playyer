@@ -155,9 +155,9 @@ export default function ResultsPage() {
         <div className="flex justify-center mb-8">
           <SwipeableCard
             song={currentSong}
-            onSwipeLeft={handleSwipeLeft}
-            onSwipeRight={handleSwipeRight}
-            onPlay={togglePlay}
+            onSwipeLeftAction={handleSwipeLeft}
+            onSwipeRightAction={handleSwipeRight}
+            onPlayToggleAction={togglePlay}
             isPlaying={isPlaying}
           />
         </div>
