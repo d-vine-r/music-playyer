@@ -26,6 +26,8 @@ function ResultsInner() {
   const audioRef = useRef<HTMLAudioElement>(null)
 
   const mood = searchParams.get("mood") || ""
+  const keywordsParam = searchParams.get("keywords") || ""
+  const keywords = keywordsParam ? keywordsParam.split(',').filter(Boolean) : []
 
   useEffect(() => {
     const initializeData = async () => {
@@ -33,7 +35,7 @@ function ResultsInner() {
         const locationData = await LocationService.getCurrentLocation()
         setLocation(locationData)
 
-        const analysis = MoodAnalyzer.analyzeMood(mood)
+        const analysis = MoodAnalyzer.analyzeMood(keywords.length ? `${mood} ${keywords.join(' ')}` : mood)
         setMoodAnalysis(analysis)
 
         const results = await SpotifyService.searchSongs(analysis, locationData)
@@ -86,7 +88,7 @@ function ResultsInner() {
   }
 
   if (loading) {
-    return <LoadingAnimation mood={mood} />
+    return <LoadingAnimation mood={mood} keywords={keywords} />
   }
 
   if (!currentSong) {

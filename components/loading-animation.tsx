@@ -5,9 +5,10 @@ import { Music, Heart, Zap, Moon } from "lucide-react"
 
 interface LoadingAnimationProps {
   mood: string
+  keywords?: string[]
 }
 
-export function LoadingAnimation({ mood }: LoadingAnimationProps) {
+export function LoadingAnimation({ mood, keywords = [] }: LoadingAnimationProps) {
   const [currentStep, setCurrentStep] = useState(0)
 
   const steps = [
@@ -61,6 +62,15 @@ export function LoadingAnimation({ mood }: LoadingAnimationProps) {
         {/* Mood display */}
         <div className="space-y-4">
           <h2 className="text-2xl md:text-3xl font-bold text-white">Finding music for "{mood}"</h2>
+          {keywords.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-2">
+              {keywords.map((kw, i) => (
+                <span key={`${kw}-${i}`} className="px-2 py-1 text-xs rounded-full bg-white/15 text-white/90 border border-white/20">
+                  {kw}
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Loading steps */}
           <div className="space-y-3">

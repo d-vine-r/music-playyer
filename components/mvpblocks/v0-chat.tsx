@@ -19,6 +19,38 @@ import { VoiceButton } from '@/components/voicebox';
 import { LocationData, MoodAnalysis } from '@/types';
 import { LocationService } from '@/lib/location-service';
 
+// Keyword list aligned with mood logic
+const MOOD_KEYWORDS = [
+  // Energy
+  'energetic','pumped','excited','hyper','intense','workout','party','dance',
+  'tired','sleepy','calm','peaceful','relaxed','chill','mellow','ambient',
+  // Valence
+  'happy','joyful','euphoric','upbeat','cheerful','optimistic','celebration',
+  'sad','depressed','melancholic','heartbroken','lonely','angry','frustrated','dark',
+  // Specific
+  'romantic','love','intimate','sensual','date','valentine',
+  'nostalgic','memories','throwback','vintage','old','reminisce',
+  'motivated','determined','focused','driven','success','achievement',
+  'thoughtful','introspective','philosophical','deep','meditative',
+  // Activities
+  'gym','exercise','running','cardio','fitness','training',
+  'focus','concentration','studying','work','productivity',
+  'sleep','bedtime','lullaby','night','dreams'
+];
+
+function extractKeywords(text: string): string[] {
+  const t = text.toLowerCase();
+  const results: string[] = [];
+  // preserve order of appearance
+  MOOD_KEYWORDS.forEach((kw) => {
+    const re = new RegExp(`(^|[^a-z])${kw}([^a-z]|$)`);
+    if (re.test(t) && !results.includes(kw)) {
+      results.push(kw);
+    }
+  });
+  return results;
+}
+
 // Variable to store chat result
 let Chatresult = '';
 
@@ -53,11 +85,15 @@ export function VercelV0Chat() {
   }, [lastTranscript]);
 
   const handleSearch = (searchMood?: string) => {
-    const finalMood = searchMood || mood
-    if (!finalMood.trim()) return
+    const finalMood = (searchMood ?? mood).trim();
+    if (!finalMood) return;
 
-    // Navigate to results page with mood as query parameter
-    router.push(`/result?mood=${encodeURIComponent(finalMood)}`)
+    const kws = extractKeywords(finalMood);
+    const params = new URLSearchParams();
+    params.set('mood', finalMood);
+    if (kws.length) params.set('keywords', kws.join(','));
+
+    router.push(`/result?${params.toString()}`);
     setMood('');
     adjustHeight(true);
   }

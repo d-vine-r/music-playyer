@@ -7,7 +7,7 @@ export class MoodAnalyzer {
     low_energy: ["tired", "sleepy", "calm", "peaceful", "relaxed", "chill", "mellow", "ambient"],
 
     // Emotional valence
-    positive: ["happy", "joyful", "excited", "euphoric", "upbeat", "cheerful", "optimistic", "celebration"],
+    positive: ["happy", "joyful", "excited", "euphoric", "upbeat", "cheerful", "optimistic", "celebration","uplifting", "joy", "feel good", "sunshine", "dance", "excited", "glad", "delighted", "cheerful", "content", "fly"],
     negative: ["sad", "depressed", "melancholic", "heartbroken", "lonely", "angry", "frustrated", "dark"],
 
     // Specific moods
@@ -20,7 +20,7 @@ export class MoodAnalyzer {
     workout: ["gym", "exercise", "running", "cardio", "fitness", "training"],
     study: ["focus", "concentration", "studying", "work", "productivity"],
     party: ["party", "celebration", "club", "dancing", "social"],
-    sleep: ["sleep", "bedtime", "lullaby", "night", "dreams"],
+    sleep: ["sleep", "bedtime", "lullaby", "night", "dreams", "sleep", "unwind", "slow", "dreamy", "gentle", "mellow", "soft", "soothe", "fatigue", "rest"],
   }
 
   private static readonly GENRE_MAPPING = {
