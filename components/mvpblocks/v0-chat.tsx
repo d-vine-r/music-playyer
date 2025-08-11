@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -17,12 +17,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { BackgroundGradientAnimation } from '../ui/background-gradient-animation';
 import { VoiceButton } from '@/components/voicebox';
+import { LocationData, MoodAnalysis } from '@/types';
+import { LocationService } from '@/lib/location-service';
 
 // Variable to store chat result
 let Chatresult = '';
 
 export function VercelV0Chat() {
-  const [value, setValue] = useState('');
+  const [mood, setMood] = useState('');
+  const [location, setLocation] = useState<LocationData | null>(null)
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 40,
     maxHeight: 100,
@@ -31,9 +34,9 @@ export function VercelV0Chat() {
 
   // Function to store textarea input in Chatresult and localStorage
   function storeChatResult() {
-    Chatresult = value;
+    Chatresult = mood;
     if (typeof window !== 'undefined') {
-      localStorage.setItem('Chatresult', value);
+      localStorage.setItem('Chatresult', mood);
     }
   }
 
@@ -42,7 +45,7 @@ export function VercelV0Chat() {
   const handleTranscript = useCallback((transcript: string) => {
     if (transcript && transcript !== lastTranscript) {
       const newPart = transcript.replace(lastTranscript, '');
-      setValue(prev => prev + (prev && newPart ? ' ' : '') + newPart);
+      setMood(prev => prev + (prev && newPart ? ' ' : '') + newPart);
       setLastTranscript(transcript);
     }
     if (!transcript) {
@@ -50,17 +53,27 @@ export function VercelV0Chat() {
     }
   }, [lastTranscript]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      if (value.trim()) {
-        setValue('');
-        adjustHeight(true);
-        storeChatResult();
-        router.push('/result');
-      }
+  const handleSearch = (searchMood?: string) => {
+    const finalMood = searchMood || mood
+    if (!finalMood.trim()) return
+
+    // Navigate to results page with mood as query parameter
+    router.push(`/results?mood=${encodeURIComponent(finalMood)}`)
+    setMood('');
+    adjustHeight(true);
+  }
+
+  useEffect(() => {
+    LocationService.getCurrentLocation().then(setLocation).catch(console.error)
+  }, [])
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSearch()
     }
-  };
+  }
+
+ 
 
   return (
     
@@ -77,12 +90,12 @@ export function VercelV0Chat() {
                 <div className="overflow-y-auto">
                   <Textarea
                     ref={textareaRef}
-                    value={value}
+                    value={mood}
                     onChange={(e) => {
-                      setValue(e.target.value);
+                      setMood(e.target.value);
                       adjustHeight();
                     }}
-                    onKeyDown={handleKeyDown}
+                    onKeyDown={handleKeyPress}
                     placeholder="Tell us how ure feeling..."
                     className={cn(
                       'w-full px-2 sm:px-4 py-2 sm:py-3',
@@ -124,19 +137,15 @@ export function VercelV0Chat() {
                       type="button"
                       className={cn(
                         'border-border flex items-center justify-between gap-1 rounded-lg border px-1.5 py-1.5 text-sm transition-colors',
-                        value.trim() ? 'bg-white text-black' : 'text-zinc-400',
+                        mood.trim() ? 'bg-white text-black' : 'text-zinc-400',
                       )}
-                      onClick={() => {
-                        if (value.trim()) {
-                          storeChatResult();
-                          router.push('/result');
-                        }
-                      }}
+                      onClick={() => handleSearch()}
+                      disabled={!mood.trim()}
                     >
                       <ArrowUpIcon
                         className={cn(
                           'h-4 w-4',
-                          value.trim() ? 'text-black' : 'text-zinc-400',
+                          mood.trim() ? 'text-black' : 'text-zinc-400',
                         )}
                       />
                       <span className="sr-only">Send</span>
@@ -150,22 +159,22 @@ export function VercelV0Chat() {
                   <ActionButton
                     icon={<Annoyed className="h-4 w-4" />}
                     label="Moody"
-                    onSelect={setValue}
+                    onSelect={setMood}
                   />
                   <ActionButton
                     icon={<Smile className="h-4 w-4" />}
                     label="Happy"
-                    onSelect={setValue}
+                    onSelect={setMood}
                   />
                   <ActionButton
                     icon={<Laugh className="h-4 w-4" />}
                     label="Joyful"
-                    onSelect={setValue}
+                    onSelect={setMood}
                   />
                   <ActionButton
                     icon={<Meh className="h-4 w-4" />}
                     label="Depressed"
-                    onSelect={setValue}
+                    onSelect={setMood}
                   />
                 </div>
               </div>

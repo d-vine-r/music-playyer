@@ -1,131 +1,210 @@
-'use client';
+"use client"
 
-import React, { useEffect, useState } from 'react';
-import { BackgroundGradientAnimation } from '@/components/ui/background-gradient-animation';
-import { detectMoodFromText, getSongQueryByMood } from '@/lib/mood';
+import { useState, useEffect, useRef } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { ArrowLeft, Play, Pause, Heart, X, SkipForward } from "lucide-react"
+import { MoodAnalyzer } from "@/lib/mood"
+import { LocationService } from "@/lib/location-service"
+import { SpotifyService } from "@/lib/spotify-service"
+import type { Song, MoodAnalysis, LocationData } from "@/types"
+import { LoadingAnimation } from "@/components/loading-animation"
+import { SwipeableCard } from "@/components/swipeable-card"
 
-const SPOTIFY_CLIENT_ID = '78e9602b9eb94acd82c54578f78170f8';
-const SPOTIFY_CLIENT_SECRET = '06465ec8b4514690863f2a1ba5e9b39c';
+export default function ResultsPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const [songs, setSongs] = useState<Song[]>([])
+  const [currentSongIndex, setCurrentSongIndex] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [location, setLocation] = useState<LocationData | null>(null)
+  const [moodAnalysis, setMoodAnalysis] = useState<MoodAnalysis | null>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [likedSongs, setLikedSongs] = useState<string[]>([])
+  const [dismissedSongs, setDismissedSongs] = useState<string[]>([])
+  const audioRef = useRef<HTMLAudioElement>(null)
 
-const fetchSpotifyToken = async () => {
-  const response = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Authorization:
-        'Basic ' + btoa(SPOTIFY_CLIENT_ID + ':' + SPOTIFY_CLIENT_SECRET),
-    },
-    body: 'grant_type=client_credentials',
-  });
-  const data = await response.json();
-  return data.access_token;
-};
-
-// Use Recommendations API with up to three seed genres
-const fetchSongs = async (token: string, seedGenres: string[]) => {
-  const seed = (seedGenres || []).filter(Boolean).slice(0, 3).join(',');
-  const params = new URLSearchParams({
-    seed_genres: seed || 'pop',
-    limit: '10',
-  });
-  const url = `https://api.spotify.com/v1/recommendations?${params.toString()}`;
-  console.log('Spotify Recommendations API URL:', url);
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  if (!response.ok) {
-    const text = await response.text();
-    console.error('Spotify API error:', response.status, text);
-    return [];
-  }
-  const data = await response.json();
-  return data.tracks || [];
-};
-
-export default function ResultPage() {
-  const [chatResult, setChatResult] = useState('');
-  const [detectedMood, setDetectedMood] = useState('neutral');
-  const [songs, setSongs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const mood = searchParams.get("mood") || ""
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('Chatresult');
-      if (stored) setChatResult(stored);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!chatResult) return;
-    const mood = detectMoodFromText(chatResult);
-    setDetectedMood(mood);
-  }, [chatResult]);
-
-  useEffect(() => {
-    if (!detectedMood) return;
-    const getSongs = async () => {
-      setLoading(true);
+    const initializeData = async () => {
       try {
-        const songQuery = getSongQueryByMood(detectedMood);
-        const token = await fetchSpotifyToken();
-        const genres = (songQuery.genres && songQuery.genres.length > 0) ? songQuery.genres.slice(0, 3) : ['pop'];
-        const tracks = await fetchSongs(token, genres);
-        setSongs(tracks);
-      } catch (error) {
-        console.error('Error fetching songs:', error);
-      }
-      setLoading(false);
-    };
-    getSongs();
-  }, [detectedMood]);
+        const locationData = await LocationService.getCurrentLocation()
+        setLocation(locationData)
 
-  const openInSpotify = (song: any) => {
-    if (song.external_urls && song.external_urls.spotify) {
-      window.open(song.external_urls.spotify, '_blank');
+        const analysis = MoodAnalyzer.analyzeMood(mood)
+        setMoodAnalysis(analysis)
+
+        const results = await SpotifyService.searchSongs(analysis, locationData)
+        setSongs(results)
+      } catch (error) {
+        console.error("Error loading data:", error)
+      } finally {
+        setLoading(false)
+      }
     }
-  };
+
+    if (mood) {
+      initializeData()
+    }
+  }, [mood])
+
+  const currentSong = songs[currentSongIndex]
+  const remainingSongs = songs.length - currentSongIndex - dismissedSongs.length - likedSongs.length
+
+  const handleSwipeLeft = () => {
+    if (currentSong) {
+      setDismissedSongs((prev) => [...prev, currentSong.id])
+      nextSong()
+    }
+  }
+
+  const handleSwipeRight = () => {
+    if (currentSong) {
+      setLikedSongs((prev) => [...prev, currentSong.id])
+      nextSong()
+    }
+  }
+
+  const nextSong = () => {
+    setIsPlaying(false)
+    if (currentSongIndex < songs.length - 1) {
+      setCurrentSongIndex((prev) => prev + 1)
+    }
+  }
+
+  const togglePlay = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause()
+      } else {
+        audioRef.current.play()
+      }
+      setIsPlaying(!isPlaying)
+    }
+  }
+
+  if (loading) {
+    return <LoadingAnimation mood={mood} />
+  }
+
+  if (!currentSong) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-center text-white">
+          <h2 className="text-2xl font-bold mb-4">All done! 🎉</h2>
+          <p className="text-blue-200 mb-6">You've gone through all the songs for this mood.</p>
+          <Button onClick={() => router.push("/")} className="bg-purple-600 hover:bg-purple-700">
+            Discover More Music
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <main>
-      <BackgroundGradientAnimation>
-        <div className="absolute overflow-y-auto w-full mx-auto space-y-10 h-screen z-50 inset-0 flex flex-col items-center justify-center text-white font-bold px-2 text-2xl text-center sm:text-3xl md:text-4xl lg:text-7xl">
-          <h3 className='text-center text-white font-mont align-middle p-8 pt-8 mt-32'>{chatResult}</h3>
-          <div className="text-lg text-white w-full max-w-2xl mx-auto">
-            <p className="mb-4 text-base text-white/80">Detected mood: <span className="font-semibold text-white">{detectedMood}</span></p>
-            {/* Spotify Results */}
-            <h4 className="text-xl font-bold mt-8 mb-2">Spotify Songs</h4>
-            {loading ? (
-              <p>Loading songs from Spotify...</p>
-            ) : songs.length > 0 ? (
-              <ul className="space-y-2">
-                {songs.map((song) => (
-                  <li
-                    key={song.id}
-                    className="bg-white/10 rounded-3xl shadow-lg p-2 flex flex-col sm:flex-row sm:items-center sm:justify-between group"
-                  >
-                    <span>
-                      <strong>{song.name}</strong> by {song.artists.map((a: any) => a.name).join(', ')}
-                    </span>
-                    <button
-                      className="bg-white/30 rounded-3xl shadow-lg p-2 flex flex-col flex-wrap sm:flex-row sm:items-center sm:justify-between text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                      onClick={() => openInSpotify(song)}
-                    >
-                      Open in Spotify
-                    </button>
-                    {song.album?.images?.[2]?.url && (
-                      <img src={song.album.images[2].url} alt={song.name} className="w-12 h-12 rounded mt-2 sm:mt-0 sm:ml-4" />
-                    )}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>No songs found for "{chatResult}" on Spotify.</p>
-            )}
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+      <div className="container mx-auto px-4 py-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <Button variant="ghost" onClick={() => router.push("/")} className="text-white hover:bg-white/20">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+
+          <div className="text-center">
+            <p className="text-white font-medium">"{mood}"</p>
+            <p className="text-blue-200 text-sm">{remainingSongs} songs remaining</p>
           </div>
+
+          <Button variant="ghost" onClick={nextSong} className="text-white hover:bg-white/20">
+            <SkipForward className="w-4 h-4" />
+          </Button>
         </div>
-      </BackgroundGradientAnimation>
-    </main>
-  );
+
+        {/* Mood Analysis */}
+        {moodAnalysis && (
+          <Card className="bg-white/10 backdrop-blur-md border-white/20 mb-6">
+            <CardContent className="p-4">
+              <div className="grid grid-cols-4 gap-4 text-center">
+                <div>
+                  <div className="text-lg font-bold text-purple-300">{Math.round(moodAnalysis.energy * 100)}%</div>
+                  <div className="text-xs text-blue-200">Energy</div>
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-green-300">{Math.round(moodAnalysis.valence * 100)}%</div>
+                  <div className="text-xs text-blue-200">Positivity</div>
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-yellow-300">
+                    {Math.round(moodAnalysis.danceability * 100)}%
+                  </div>
+                  <div className="text-xs text-blue-200">Dance</div>
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-pink-300">{moodAnalysis.tempo}</div>
+                  <div className="text-xs text-blue-200">BPM</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Swipeable Card */}
+        <div className="flex justify-center mb-8">
+          <SwipeableCard
+            song={currentSong}
+            onSwipeLeft={handleSwipeLeft}
+            onSwipeRight={handleSwipeRight}
+            onPlay={togglePlay}
+            isPlaying={isPlaying}
+          />
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex justify-center gap-6 mb-8">
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={handleSwipeLeft}
+            className="w-16 h-16 rounded-full border-red-400 text-red-400 hover:bg-red-400 hover:text-white bg-transparent"
+          >
+            <X className="w-6 h-6" />
+          </Button>
+
+          <Button
+            size="lg"
+            onClick={togglePlay}
+            className="w-20 h-20 rounded-full bg-white text-purple-900 hover:bg-gray-100"
+          >
+            {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8 ml-1" />}
+          </Button>
+
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={handleSwipeRight}
+            className="w-16 h-16 rounded-full border-green-400 text-green-400 hover:bg-green-400 hover:text-white bg-transparent"
+          >
+            <Heart className="w-6 h-6" />
+          </Button>
+        </div>
+
+        {/* Instructions */}
+        <div className="text-center text-blue-200 text-sm">
+          <p>Swipe left to dismiss • Swipe right to like • Tap to play</p>
+        </div>
+
+        {/* Hidden audio element */}
+        <audio
+          ref={audioRef}
+          src={currentSong.previewUrl}
+          onEnded={() => setIsPlaying(false)}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+        />
+      </div>
+    </div>
+  )
 }
