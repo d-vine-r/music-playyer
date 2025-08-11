@@ -25,6 +25,19 @@ export function LoadingAnimation({ mood }: LoadingAnimationProps) {
     return () => clearInterval(interval)
   }, [])
 
+  // Generate particle positions client-side to avoid hydration mismatches
+  const [particles, setParticles] = useState<{ left: string; top: string; animationDelay: string; animationDuration: string;}[]>([])
+
+  useEffect(() => {
+    const p = Array.from({ length: 20 }).map(() => ({
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 100}%`,
+      animationDelay: `${Math.random() * 2}s`,
+      animationDuration: `${2 + Math.random() * 2}s`,
+    }))
+    setParticles(p)
+  }, [])
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
       <div className="text-center space-y-8">
@@ -82,20 +95,22 @@ export function LoadingAnimation({ mood }: LoadingAnimationProps) {
         </div>
 
         {/* Floating particles */}
+        {particles.length > 0 && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(20)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute w-2 h-2 bg-white/20 rounded-full animate-pulse"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 2}s`,
-                animationDuration: `${2 + Math.random() * 2}s`,
-              }}
-            />
-          ))}
+        {particles.map((p, i) => (
+        <div
+        key={i}
+        className="absolute w-2 h-2 bg-white/20 rounded-full animate-pulse"
+        style={{
+        left: p.left,
+        top: p.top,
+        animationDelay: p.animationDelay,
+        animationDuration: p.animationDuration,
+        }}
+        />
+        ))}
         </div>
+        )}
       </div>
     </div>
   )

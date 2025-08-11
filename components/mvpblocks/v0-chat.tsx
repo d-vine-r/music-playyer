@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { useAutoResizeTextarea } from '@/hooks/use-auto-resize-textarea';
@@ -12,7 +12,6 @@ import {
   Laugh,
   ArrowUpIcon,
   Mic,
-  PlusIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BackgroundGradientAnimation } from '../ui/background-gradient-animation';
@@ -58,7 +57,7 @@ export function VercelV0Chat() {
     if (!finalMood.trim()) return
 
     // Navigate to results page with mood as query parameter
-    router.push(`/results?mood=${encodeURIComponent(finalMood)}`)
+    router.push(`/result?mood=${encodeURIComponent(finalMood)}`)
     setMood('');
     adjustHeight(true);
   }
@@ -159,22 +158,22 @@ export function VercelV0Chat() {
                   <ActionButton
                     icon={<Annoyed className="h-4 w-4" />}
                     label="Moody"
-                    onSelect={setMood}
+                    onSelect={(label) => handleSearch(label)}
                   />
                   <ActionButton
                     icon={<Smile className="h-4 w-4" />}
                     label="Happy"
-                    onSelect={setMood}
+                    onSelect={(label) => handleSearch(label)}
                   />
                   <ActionButton
                     icon={<Laugh className="h-4 w-4" />}
                     label="Joyful"
-                    onSelect={setMood}
+                    onSelect={(label) => handleSearch(label)}
                   />
                   <ActionButton
                     icon={<Meh className="h-4 w-4" />}
                     label="Depressed"
-                    onSelect={setMood}
+                    onSelect={(label) => handleSearch(label)}
                   />
                 </div>
               </div>
