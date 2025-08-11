@@ -9,6 +9,7 @@ export class MoodAnalyzer {
     // Emotional valence
     positive: ["happy", "joyful", "excited", "euphoric", "upbeat", "cheerful", "optimistic", "celebration","uplifting", "joy", "feel good", "sunshine", "dance", "excited", "glad", "delighted", "cheerful", "content", "fly"],
     negative: ["sad", "depressed", "melancholic", "heartbroken", "lonely", "angry", "frustrated", "dark"],
+    stressed: ["stressed", "anxious", "overwhelmed", "tense", "worried", "nervous", "burned out", "burnt out", "pressure", "stress"],
 
     // Specific moods
     romantic: ["romantic", "love", "intimate", "sensual", "date", "valentine"],
@@ -24,15 +25,16 @@ export class MoodAnalyzer {
   }
 
   private static readonly GENRE_MAPPING = {
-    high_energy: ["electronic", "rock", "pop", "hip-hop", "dance"],
-    low_energy: ["ambient", "classical", "folk", "indie", "acoustic"],
-    positive: ["pop", "reggae", "funk", "disco", "soul"],
-    negative: ["blues", "alternative", "grunge", "emo", "indie"],
-    romantic: ["r&b", "soul", "jazz", "acoustic", "indie"],
-    nostalgic: ["classic rock", "oldies", "vintage", "retro"],
-    workout: ["electronic", "hip-hop", "rock", "metal", "dance"],
-    study: ["lo-fi", "classical", "ambient", "instrumental"],
-    party: ["dance", "electronic", "hip-hop", "pop", "reggaeton"],
+    high_energy: ["afrobeat", "afropop", "afro-dancehall"],
+    low_energy: ["afro-soul", "afro-jazz", "highlife"],
+    positive: ["afrobeat", "afropop", "highlife"],
+    negative: ["afro-soul", "afro-jazz", "highlife"],
+    romantic: ["afro-soul", "afro-jazz", "highlife"],
+    nostalgic: ["highlife", "afrobeat", "afro-jazz"],
+    workout: ["afrobeat", "afropop", "afro-dancehall"],
+    study: ["afro-jazz", "afro-soul", "highlife"],
+    party: ["afrobeat", "afropop", "afro-dancehall"],
+    stressed: ["afro-soul", "afro-jazz", "highlife"],
   }
 
   static analyzeMood(moodText: string): MoodAnalysis {
@@ -86,6 +88,14 @@ export class MoodAnalyzer {
       energy = Math.max(0, energy - 0.4) // Very low energy
       valence = Math.max(0.3, valence) // Slightly positive
       danceability = Math.max(0, danceability - 0.4) // Not danceable
+    }
+
+    // Stressed/anxious adjustments
+    const stressedScore = this.calculateKeywordScore(text, (this.MOOD_KEYWORDS as any).stressed || [])
+    if (stressedScore > 0) {
+      energy = Math.max(0, energy - 0.2)
+      valence = Math.max(0, valence - 0.1)
+      danceability = Math.max(0, danceability - 0.3)
     }
 
     // Determine genres
@@ -152,6 +162,17 @@ export class MoodAnalyzer {
       })
     })
 
+    // Apply stressed filter to deprioritize upbeat genres and promote calming ones
+    const stressedScore = this.calculateKeywordScore(text, (this.MOOD_KEYWORDS as any).stressed || [])
+    if (stressedScore > 0) {
+      ;['pop','electronic','dance','hip-hop'].forEach((g) => {
+        if (genreScores[g] !== undefined) genreScores[g] *= 0.2
+      })
+      ;['ambient','classical','lo-fi','acoustic','indie','instrumental'].forEach((g) => {
+        genreScores[g] = (genreScores[g] || 0) + stressedScore * 0.8
+      })
+    }
+
     // Return top 3 genres
     return Object.entries(genreScores)
       .sort(([, a], [, b]) => b - a)
@@ -190,4 +211,126 @@ export class MoodAnalyzer {
 
     return tags.slice(0, 5) // Limit to 5 tags
   }
+}
+
+type Mood =
+  | 'happy'
+  | 'sad'
+  | 'moody'
+  | 'energetic'
+  | 'chill'
+  | 'angry'
+  | 'motivated'
+  | 'nostalgic'
+  | 'romantic'
+  | 'party'
+  | 'sleepy'
+  | 'stressed'
+  | 'melancholy'
+  | 'focused'
+  | 'adventurous'
+  | 'neutral';
+
+const moodQueryMap: Record<Mood, { keywords: string[]; genres: string[] }> = {
+  happy: {
+    keywords: ['uplifting', 'joy', 'feel good', 'sunshine', 'dance', 'excited', 'glad', 'delighted', 'cheerful', 'content', 'fly'],
+    genres: ['afrobeat', 'afropop', 'highlife'],
+  },
+  sad: {
+    keywords: ['heartbreak', 'cry', 'lonely', 'tears', 'tired', 'sad', 'depressed', 'blue', 'tear'],
+    genres: ['afro-soul', 'afro-jazz'],
+  },
+  moody: {
+    keywords: ['moody', 'melancholy', 'wistful', 'gloomy', 'mournful', 'aching'],
+    genres: ['afro-soul', 'afro-jazz'],
+  },
+  energetic: {
+    keywords: ['hype', 'power', 'drive', 'intense', 'excited', 'glad', 'delighted', 'cheerful', 'content', 'fly'],
+    genres: ['afrobeat', 'afropop'],
+  },
+  chill: {
+    keywords: ['relax', 'lofi', 'calm', 'vibe', 'relaxed', 'peaceful', 'easygoing'],
+    genres: ['afro-jazz', 'afro-soul'],
+  },
+  angry: {
+    keywords: ['rage', 'revenge', 'scream', 'burn', 'mad', 'furious', 'annoyed'],
+    genres: ['afrobeat'],
+  },
+  motivated: {
+    keywords: ['grind', 'win', 'focus', 'hustle', 'driven', 'ambitious', 'determined', 'focused'],
+    genres: ['afrobeat', 'afropop'],
+  },
+  nostalgic: {
+    keywords: ['memory', 'throwback', 'old times', 'nostalgic', 'remember', 'reminisce'],
+    genres: ['highlife', 'afrobeat', 'afro-jazz'],
+  },
+  romantic: {
+    keywords: ['love', 'romance', 'kiss', 'passionate', 'crush', 'affection', 'in love'],
+    genres: ['afro-soul', 'afro-jazz', 'highlife'],
+  },
+  party: {
+    keywords: ['club', 'bass', 'drink', 'fun', 'party', 'celebrate', 'dance'],
+    genres: ['afrobeat', 'afropop', 'afro-dancehall'],
+  },
+  sleepy: {
+    keywords: ['sleep', 'unwind', 'slow', 'dreamy', 'gentle', 'mellow', 'soft', 'soothe', 'fatigue', 'rest'],
+    genres: ['afro-jazz', 'afro-soul'],
+  },
+  stressed: {
+    keywords: ['stress', 'anxiety', 'stressed', 'overwhelmed', 'anxious', 'nervous'],
+    genres: ['afro-jazz', 'afro-soul'],
+  },
+  melancholy: {
+    keywords: ['blue', 'slow', 'aching', 'mourn', 'melancholy', 'gloomy', 'mournful', 'wistful'],
+    genres: ['afro-soul', 'afro-jazz'],
+  },
+  focused: {
+    keywords: ['concentrate', 'study', 'work', 'focus', 'productive'],
+    genres: ['afro-jazz'],
+  },
+  adventurous: {
+    keywords: ['explore', 'journey', 'adventure', 'exciting', 'thrilling'],
+    genres: ['afrobeat', 'highlife'],
+  },
+  neutral: {
+    keywords: [],
+    genres: ['afrobeat'],
+  },
+};
+
+// Define the SongQuery type
+type SongQuery = {
+  keywords: string[];
+  genres: string[];
+  mood: string;
+  moodTag: string;
+  query: string;
+};
+
+export function getSongQueryByMood(mood: Mood): SongQuery {
+  const normalizedMood = typeof mood === 'string' ? mood.trim().toLowerCase() : '';
+  const moodInfo = moodQueryMap[normalizedMood as Mood];
+  if (!moodInfo) {
+    const fallback = typeof mood === 'string' && normalizedMood ? normalizedMood : 'happy';
+    return {
+      keywords: [fallback],
+      genres: ['happy'],
+      mood: fallback,
+      moodTag: fallback,
+      query: `${fallback} genre:happy`,
+    };
+  }
+  const keywords = moodInfo.keywords;
+  const genres = moodInfo.genres;
+
+  // Ensure the first genre matches the mood
+  const genrePart = genres.length > 0 ? genres[0] : 'pop';
+
+  return {
+    keywords,
+    genres,
+    mood: normalizedMood,
+    moodTag: normalizedMood,
+    query: `${keywords[0]} genre:${genrePart}`,
+  };
 }

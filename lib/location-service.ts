@@ -28,12 +28,10 @@ export class LocationService {
 
     // Simulate some major cities
     const cities = [
-      { name: "New York", country: "United States", lat: 40.7128, lon: -74.006, timezone: "America/New_York" },
-      { name: "London", country: "United Kingdom", lat: 51.5074, lon: -0.1278, timezone: "Europe/London" },
-      { name: "Tokyo", country: "Japan", lat: 35.6762, lon: 139.6503, timezone: "Asia/Tokyo" },
-      { name: "Sydney", country: "Australia", lat: -33.8688, lon: 151.2093, timezone: "Australia/Sydney" },
-      { name: "São Paulo", country: "Brazil", lat: -23.5505, lon: -46.6333, timezone: "America/Sao_Paulo" },
-      { name: "Mumbai", country: "India", lat: 19.076, lon: 72.8777, timezone: "Asia/Kolkata" },
+      { name: "Lagos", country: "Nigeria", lat: 6.5244, lon: 3.3792, timezone: "Africa/Lagos" },
+      { name: "Ogun" , country: "Nigeria", lat: 7.0833, lon: 3.3667, timezone: "Africa/Lagos" },
+      { name: "Abuja", country: "Nigeria", lat: 9.0575, lon: 7.49508, timezone: "Africa/Lagos" },
+      { name: "Port Harcourt", country: "Nigeria", lat: 4.8156, lon: 7.0498, timezone: "Africa/Lagos" },
     ]
 
     // Find closest city (simplified)
