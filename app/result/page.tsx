@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -12,7 +12,7 @@ import type { Song, MoodAnalysis, LocationData } from "@/types"
 import { LoadingAnimation } from "@/components/loading-animation"
 import { SwipeableCard } from "@/components/swipeable-card"
 
-export default function ResultsPage() {
+function ResultsInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [songs, setSongs] = useState<Song[]>([])
@@ -206,5 +206,13 @@ export default function ResultsPage() {
         />
       </div>
     </div>
+  )
+}
+
+export default function ResultsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center"><LoadingAnimation mood="" /></div>}>
+      <ResultsInner />
+    </Suspense>
   )
 }
