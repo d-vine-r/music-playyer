@@ -37,6 +37,18 @@ export class MoodAnalyzer {
     stressed: ["afro-soul", "afro-jazz", "highlife"],
   }
 
+  private static readonly POPULAR_ARTISTS_BY_LOCATION = {
+  'nigeria': ['Burna Boy', 'Wizkid', 'Davido'],
+  'ghana': ['Sarkodie', 'Stonebwoy', 'Shatta Wale'],
+  'south_africa': ['Black Coffee', 'Cassper Nyovest', 'Sho Madjozi'],
+  // Add more as needed
+};
+
+static getPopularArtists(location: string): string[] {
+  const key = location.toLowerCase().replace(/\s/g, '_');
+  return this.POPULAR_ARTISTS_BY_LOCATION[key as keyof typeof this.POPULAR_ARTISTS_BY_LOCATION] || [];
+}
+
   static analyzeMood(moodText: string): MoodAnalysis {
     const text = moodText.toLowerCase()
     let energy = 0.5

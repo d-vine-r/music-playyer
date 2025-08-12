@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { MoodAnalyzer } from '@/lib/mood'
+import { LocationService } from '@/lib/location-service'
 
 // Ensure Node.js runtime for server-only features like Buffer
 export const runtime = 'nodejs'
@@ -34,14 +36,31 @@ async function fetchToken(): Promise<string> {
 
 export async function POST(request: Request) {
   try {
-    const { seed_genres, limit = 10 } = (await request.json()) as RecommendationRequest
+    // Accept location in request body
+    const { seed_genres, limit = 10, location } = (await request.json()) as RecommendationRequest & { location?: string };
     if (!seed_genres || seed_genres.length === 0) {
       return NextResponse.json({ error: 'No seed_genres provided' }, { status: 400 })
     }
     const token = await fetchToken()
 
-    // Search tracks via Spotify Search endpoint (using mood seed genres)
-    const query = seed_genres.join(' ')
+    // Get location from request or LocationService
+    let userLocation = location;
+    if (!userLocation) {
+      try {
+        const locData = await LocationService.getCurrentLocation();
+        userLocation = locData?.country;
+      } catch (e) {
+        userLocation = undefined;
+      }
+    }
+
+    // Get popular artists for location
+    const popularArtists = userLocation ? MoodAnalyzer.getPopularArtists(userLocation) : [];
+    // Combine genres and artists for search
+    const queryParts = [...seed_genres, ...popularArtists];
+    const query = queryParts.join(' ');
+
+    // Search tracks via Spotify Search endpoint (using mood seed genres + local artists)
     const searchRes = await fetch(
       `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`,
       { headers: { Authorization: `Bearer ${token}` } }
