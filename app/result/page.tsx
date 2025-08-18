@@ -10,6 +10,7 @@ import type { Song, MoodAnalysis } from "@/types"
 import { LoadingAnimation } from "@/components/loading-animation"
 import { SwipeableCard } from "@/components/swipeable-card"
 import Player from "@/components/Player"
+import { SpotifyService } from "@/lib/spotify-service"
 
 const analyzer = new MoodAnalyzer()
 
@@ -41,16 +42,8 @@ function ResultsInner() {
 
         console.log("API Response:", data) // Debugging log
 
-        if (Array.isArray(data.tracks)) {
-          const mapped: Song[] = data.tracks.map((t: any) => ({
-            id: t.id,
-            name: t.name,
-            artist: Array.isArray(t.artists) ? t.artists.map((a: any) => a.name).join(", ") : "Unknown Artist", // Defensive check
-            previewUrl: t.preview_url,
-            externalUrl: t.external_urls?.spotify ?? "",
-            imageUrl: t.album?.images?.[0]?.url,
-          }))
-          setSongs(mapped)
+        if (data.tracks) {
+          setSongs(SpotifyService.mapSpotifyTracks(data.tracks))
         } else {
           console.error("Unexpected data format for tracks:", data.tracks)
         }
@@ -198,7 +191,7 @@ function ResultsInner() {
         </div>
 
         {/* Player */}
-        <div className="flex justify-center mt-8">
+        <div className="flex w-screen h-auto justify-center mt-8">
           <Player
             audioUrl={currentSong.previewUrl}
             title={currentSong.name}

@@ -8,12 +8,14 @@ import * as React from 'react';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import { styled } from '@mui/material/styles';
+import Image from "next/image";
 
 interface Props {
   className?: string;
   audioUrl?: string;
   title?: string;
   artist?: string;
+  audioImg?: any;
 }
 
 const TinyText = styled(Typography)({
@@ -50,7 +52,7 @@ const RepeatButton = () => {
     );
 };
 
-export const Player = ({className, audioUrl, title, artist}: Props) => {
+export const Player = ({className, audioUrl, title, artist, audioImg}: Props) => {
     const [play, setPlay] = React.useState(false);
     const audioRef = React.useRef<HTMLAudioElement | null>(null);
     const [duration, setDuration] = React.useState(0);
@@ -99,23 +101,24 @@ export const Player = ({className, audioUrl, title, artist}: Props) => {
 
     return (
         <section className={clsx("bg-gradient-to-br from-purple-900 to-violet-800 rounded-t shadow justify-around w-screen sticky bottom-0 z-50 flex", className)}>
-            <section className="flex-start align-left gap-4">
-                <div className="flex-col items-left gap-4 p-4">
+            <section className="flex-start flex align-left gap-4">
+                <Image src={audioImg} width={100} height={40} alt="/placeholder.jpg"/>
+                <div className="flex-col items-left text-white  gap-4 p-4">
                     <h3>{title || 'Nothing Yet'}</h3>
                     <p>{artist || 'Mr Thompson'}</p>
                 </div>
             </section>
             <section>
                 <div className="flex items-center justify-center gap-4 p-4">
-                    <SkipBack className="hover:text-primary" />
+                    <SkipBack className="hover:text-primary text-white" />
                     <button
                         aria-label={play ? "Pause" : "Play"}
                         onClick={() => setPlay(p => !p)}
-                        className={play ? "text-primary" : "text-gray-700"}
+                        className={play ? "text-primary" : "text-white"}
                     >
                         {play ? <Pause size={28} /> : <Play size={28} />}
                     </button>
-                    <SkipForward className="hover:text-primary"/>  
+                    <SkipForward className="hover:text-primary text-white"/>  
                 </div>
                 <Slider
                     aria-label="time-indicator"
@@ -154,7 +157,7 @@ export const Player = ({className, audioUrl, title, artist}: Props) => {
                         '& .MuiSlider-rail': {
                         opacity: 0.28,
                         },
-                        ...t.applyStyles('dark', {
+                        ...t.applyStyles('light', {
                         color: '#fff',
                         }),
                     })}

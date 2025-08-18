@@ -10,6 +10,9 @@ export interface Song {
     audioFeatures: AudioFeatures
     genres: string[]
     isPopularInRegion: boolean
+    imageUrl?: string
+    releaseDate: string
+    popularity: string
   }
   
   export interface AudioFeatures {
