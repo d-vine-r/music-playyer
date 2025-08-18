@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, Suspense } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -11,6 +11,9 @@ import { SpotifyService } from "@/lib/spotify-service"
 import type { Song, MoodAnalysis, LocationData } from "@/types"
 import { LoadingAnimation } from "@/components/loading-animation"
 import { SwipeableCard } from "@/components/swipeable-card"
+import Player from "@/components/Player"
+
+const analyzer = new MoodAnalyzer()
 
 function ResultsInner() {
   const searchParams = useSearchParams()
@@ -23,23 +26,42 @@ function ResultsInner() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [likedSongs, setLikedSongs] = useState<string[]>([])
   const [dismissedSongs, setDismissedSongs] = useState<string[]>([])
-  const audioRef = useRef<HTMLAudioElement>(null)
 
+  // Mood input
   const mood = searchParams.get("mood") || ""
-  const keywordsParam = searchParams.get("keywords") || ""
-  const keywords = keywordsParam ? keywordsParam.split(',').filter(Boolean) : []
+  const country = (searchParams.get("country") || "NG") as any
+
+  // Analyze mood
+  const analysis = analyzer.analyzeMood({ mood, countryCode: country })
+  const recommendations = analyzer.recommendSongs(analysis)
 
   useEffect(() => {
     const initializeData = async () => {
       try {
         const locationData = await LocationService.getCurrentLocation()
         setLocation(locationData)
-
-        const analysis = MoodAnalyzer.analyzeMood(keywords.length ? `${mood} ${keywords.join(' ')}` : mood)
         setMoodAnalysis(analysis)
 
-        const results = await SpotifyService.searchSongs(analysis, locationData)
-        setSongs(results)
+        // 🔑 Fetch all MoodAnalyzer suggestions in parallel
+        const spotifyResultsArrays = await Promise.all(
+          recommendations.map(async (rec) => {
+            try {
+              const result = await SpotifyService.searchSongs(
+                { ...analysis, keywords: [`${rec.title} ${rec.artist}`] },
+                locationData
+              )
+              return result.length > 0 ? result[0] : null
+            } catch (err) {
+              console.error(`Failed fetching ${rec.title}`, err)
+              return null
+            }
+          })
+        )
+
+        // Flatten + filter nulls
+        const spotifyResults = spotifyResultsArrays.filter((s): s is Song => s !== null)
+
+        setSongs(spotifyResults)
       } catch (error) {
         console.error("Error loading data:", error)
       } finally {
@@ -76,19 +98,10 @@ function ResultsInner() {
     }
   }
 
-  const togglePlay = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause()
-      } else {
-        audioRef.current.play()
-      }
-      setIsPlaying(!isPlaying)
-    }
-  }
+  const togglePlay = () => {}
 
   if (loading) {
-    return <LoadingAnimation mood={mood} keywords={keywords} />
+    return <LoadingAnimation mood={mood} keywords={analysis.keywords} />
   }
 
   if (!currentSong) {
@@ -129,24 +142,18 @@ function ResultsInner() {
         {moodAnalysis && (
           <Card className="bg-white/10 backdrop-blur-md border-white/20 mb-6">
             <CardContent className="p-4">
-              <div className="grid grid-cols-4 gap-4 text-center">
+              <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <div className="text-lg font-bold text-purple-300">{Math.round(moodAnalysis.energy * 100)}%</div>
+                  <div className="text-lg font-bold text-purple-300">{analysis.facets.energy}</div>
                   <div className="text-xs text-blue-200">Energy</div>
                 </div>
                 <div>
-                  <div className="text-lg font-bold text-green-300">{Math.round(moodAnalysis.valence * 100)}%</div>
+                  <div className="text-lg font-bold text-green-300">{analysis.facets.valence}</div>
                   <div className="text-xs text-blue-200">Positivity</div>
                 </div>
                 <div>
-                  <div className="text-lg font-bold text-yellow-300">
-                    {Math.round(moodAnalysis.danceability * 100)}%
-                  </div>
-                  <div className="text-xs text-blue-200">Dance</div>
-                </div>
-                <div>
-                  <div className="text-lg font-bold text-pink-300">{moodAnalysis.tempo}</div>
-                  <div className="text-xs text-blue-200">BPM</div>
+                  <div className="text-lg font-bold text-yellow-300">{analysis.facets.tempo}</div>
+                  <div className="text-xs text-blue-200">Tempo</div>
                 </div>
               </div>
             </CardContent>
@@ -198,14 +205,14 @@ function ResultsInner() {
           <p>Swipe left to dismiss • Swipe right to like • Tap to play</p>
         </div>
 
-        {/* Hidden audio element */}
-        <audio
-          ref={audioRef}
-          src={currentSong.previewUrl}
-          onEnded={() => setIsPlaying(false)}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-        />
+        {/* Player */}
+        <div className="flex justify-center mt-8">
+          <Player
+            audioUrl={currentSong.previewUrl}
+            title={currentSong.name}
+            artist={currentSong.artist}
+          />
+        </div>
       </div>
     </div>
   )
@@ -213,7 +220,13 @@ function ResultsInner() {
 
 export default function ResultsPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center"><LoadingAnimation mood="" /></div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+          <LoadingAnimation mood="" />
+        </div>
+      }
+    >
       <ResultsInner />
     </Suspense>
   )

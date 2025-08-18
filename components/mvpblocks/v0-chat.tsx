@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import Player from '@/components/Player';
 import { useRouter } from 'next/navigation';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -19,44 +20,19 @@ import { VoiceButton } from '@/components/voicebox';
 import { LocationData, MoodAnalysis } from '@/types';
 import { LocationService } from '@/lib/location-service';
 
-// Keyword list aligned with mood logic
-const MOOD_KEYWORDS = [
-  // Energy
-  'energetic','pumped','excited','hyper','intense','workout','party','dance',
-  'tired','sleepy','calm','peaceful','relaxed','chill','mellow','ambient',
-  // Valence
-  'happy','joyful','euphoric','upbeat','cheerful','optimistic','celebration',
-  'sad','depressed','melancholic','heartbroken','lonely','angry','frustrated','dark',
-  // Specific
-  'romantic','love','intimate','sensual','date','valentine',
-  'nostalgic','memories','throwback','vintage','old','reminisce',
-  'motivated','determined','focused','driven','success','achievement',
-  'thoughtful','introspective','philosophical','deep','meditative',
-  // Activities
-  'gym','exercise','running','cardio','fitness','training',
-  'focus','concentration','studying','work','productivity',
-  'sleep','bedtime','lullaby','night','dreams'
-];
 
-function extractKeywords(text: string): string[] {
-  const t = text.toLowerCase();
-  const results: string[] = [];
-  // preserve order of appearance
-  MOOD_KEYWORDS.forEach((kw) => {
-    const re = new RegExp(`(^|[^a-z])${kw}([^a-z]|$)`);
-    if (re.test(t) && !results.includes(kw)) {
-      results.push(kw);
-    }
-  });
-  return results;
-}
 
 // Variable to store chat result
 let Chatresult = '';
 
-export function VercelV0Chat() {
+export default function VercelV0Chat() {
   const [mood, setMood] = useState('');
   const [location, setLocation] = useState<LocationData | null>(null)
+  const [vibezMix, setVibezMix] = useState<{
+    audioUrl: string;
+    title: string;
+    artist: string;
+  } | null>(null);
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 40,
     maxHeight: 100,
@@ -84,20 +60,30 @@ export function VercelV0Chat() {
     }
   }, [lastTranscript]);
 
-  const handleSearch = (searchMood?: string) => {
-    const finalMood = (searchMood ?? mood).trim();
-    if (!finalMood) return;
+  const handleSearch = (eOrLabel?: React.FormEvent | string) => {
+        if (typeof eOrLabel === 'string') {
+          if (!eOrLabel.trim()) return;
+          router.push(`/results?mood=${encodeURIComponent(eOrLabel)}&country=NG`);
+          return;
+        }
+        if (eOrLabel) eOrLabel.preventDefault();
+        if (!mood.trim()) return;
+        router.push(`/result?mood=${encodeURIComponent(mood)}&country=NG`);
+      };
 
-    const kws = extractKeywords(finalMood);
-    const params = new URLSearchParams();
-    params.set('mood', finalMood);
-    if (kws.length) params.set('keywords', kws.join(','));
+    // Secret "vibez" feature
+    // if (finalMood.toLowerCase() === 'vibez') {
+    //   setVibezMix({
+    //     audioUrl: 'https://api.audiomack.com/embed/song/dj-kaywise/what-type-of-dance-1', // Example Audiomack embed (replace with direct mp3 if available)
+    //     title: 'What Type of Dance',
+    //     artist: 'DJ Kaywise',
+    //   });
+    //   setMood('');
+    //   adjustHeight(true);
+    //   return;
+    // }
 
-    router.push(`/result?${params.toString()}`);
-    setMood('');
-    adjustHeight(true);
-  }
-
+    
   useEffect(() => {
     LocationService.getCurrentLocation().then(setLocation).catch(console.error)
   }, [])
@@ -119,6 +105,13 @@ export function VercelV0Chat() {
             <h1 className="bg-clip-text text-transparent drop-shadow-2xl pointer-events-none text-4xl sm:text-7xl bg-gradient-to-b from-white/80 to-white/20">
               How are you feeling?
             </h1>
+
+            {/* {vibezMix && (
+              <div className="w-full flex flex-col items-center justify-center mt-4">
+                <div className="mb-4 text-lg text-white">Vibez Mode: Enjoy a DJ Mix!</div>
+                <Player audioUrl={vibezMix.audioUrl} title={vibezMix.title} artist={vibezMix.artist} />
+              </div>
+            )} */}
 
             <div className="w-full">
               <div className="shadow-lg bg-secondary/20 relative rounded-xl">
@@ -240,5 +233,3 @@ function ActionButton({ icon, label, onSelect }: ActionButtonProps) {
     </Button>
   );
 }
-
-export default VercelV0Chat;

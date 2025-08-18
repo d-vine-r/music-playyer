@@ -11,6 +11,9 @@ import { styled } from '@mui/material/styles';
 
 interface Props {
   className?: string;
+  audioUrl?: string;
+  title?: string;
+  artist?: string;
 }
 
 const TinyText = styled(Typography)({
@@ -47,25 +50,44 @@ const RepeatButton = () => {
     );
 };
 
-export const Player = ({className}: Props) => {
-    const duration = 200; // seconds
-    const [position, setPosition] = React.useState(32);
+export const Player = ({className, audioUrl, title, artist}: Props) => {
     const [play, setPlay] = React.useState(false);
+    const audioRef = React.useRef<HTMLAudioElement | null>(null);
+    const [duration, setDuration] = React.useState(0);
+    const [position, setPosition] = React.useState(0);
 
     React.useEffect(() => {
-        if (!play) return;
-        if (position >= duration) return;
-        const interval = setInterval(() => {
-            setPosition(pos => {
-                if (pos < duration) {
-                    return pos + 1;
-                } else {
-                    return pos;
-                }
-            });
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [play, position, duration]);
+        if (audioUrl) {
+            audioRef.current = new Audio(audioUrl);
+            audioRef.current.addEventListener('timeupdate', handleTimeUpdate);
+            audioRef.current.addEventListener('loadedmetadata', handleLoadedMetadata);
+        }
+        return () => {
+            audioRef.current?.removeEventListener('timeupdate', handleTimeUpdate);
+            audioRef.current?.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            audioRef.current = null;
+        };
+    }, [audioUrl]);
+
+    React.useEffect(() => {
+        if (play && audioRef.current) {
+            audioRef.current.play();
+        } else if (audioRef.current) {
+            audioRef.current.pause();
+        }
+    }, [play]);
+
+    const handleTimeUpdate = () => {
+        if (audioRef.current) {
+            setPosition(audioRef.current.currentTime);
+        }
+    };
+
+    const handleLoadedMetadata = () => {
+        if (audioRef.current) {
+            setDuration(audioRef.current.duration);
+        }
+    };
 
     function formatDuration(position: number): React.ReactNode {
         const minutes = Math.floor(position / 60);
@@ -76,16 +98,15 @@ export const Player = ({className}: Props) => {
     }
 
     return (
-        <section className={clsx("bg-slate-100 rounded-t shadow justify-around w-screen sticky bottom-0 z-50 flex", className)}>
+        <section className={clsx("bg-gradient-to-br from-purple-900 to-violet-800 rounded-t shadow justify-around w-screen sticky bottom-0 z-50 flex", className)}>
             <section className="flex-start align-left gap-4">
                 <div className="flex-col items-left gap-4 p-4">
-                    <h3>Nothing Yet</h3>
-                    <p>Mr Thompson</p>
+                    <h3>{title || 'Nothing Yet'}</h3>
+                    <p>{artist || 'Mr Thompson'}</p>
                 </div>
             </section>
             <section>
                 <div className="flex items-center justify-center gap-4 p-4">
-                    
                     <SkipBack className="hover:text-primary" />
                     <button
                         aria-label={play ? "Pause" : "Play"}
@@ -103,7 +124,12 @@ export const Player = ({className}: Props) => {
                     min={0}
                     step={1}
                     max={duration}
-                    onChange={(_, value) => setPosition(value as number)}
+                    onChange={(_, value) => {
+                        if (audioRef.current) {
+                            audioRef.current.currentTime = value as number;
+                        }
+                        setPosition(value as number);
+                    }}
                     sx={(t) => ({
                         color: 'rgba(0,0,0,0.87)',
                         height: 4,
