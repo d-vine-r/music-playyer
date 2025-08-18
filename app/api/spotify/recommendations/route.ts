@@ -1,100 +1,113 @@
-import { NextResponse } from 'next/server'
-import { MoodAnalyzer } from '@/lib/mood'
-import { LocationService } from '@/lib/location-service'
+import { NextResponse } from "next/server"
+import { MoodAnalyzer } from "@/lib/mood"
 
-// Ensure Node.js runtime for server-only features like Buffer
-export const runtime = 'nodejs'
+// Spotify endpoints
+const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
+const SPOTIFY_SEARCH_URL = "https://api.spotify.com/v1/search"
+const SPOTIFY_RECOMMENDATIONS_URL = "https://api.spotify.com/v1/recommendations"
 
-interface RecommendationRequest {
-  seed_genres: string[]
-  limit?: number
-}
+async function getSpotifyAccessToken() {
+  const creds = Buffer.from(
+    `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
+  ).toString("base64")
 
-// Fetch Spotify access token via Client Credentials Flow
-async function fetchToken(): Promise<string> {
-  const clientId = process.env.SPOTIFY_CLIENT_ID
-  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET
-  if (!clientId || !clientSecret) {
-    throw new Error('Missing Spotify credentials in environment')
-  }
-  const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
-  const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
+  const res = await fetch(SPOTIFY_TOKEN_URL, {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Authorization: `Basic ${basic}`,
+      Authorization: `Basic ${creds}`,
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: new URLSearchParams({ grant_type: 'client_credentials' }),
+    body: "grant_type=client_credentials",
   })
-  if (!tokenRes.ok) {
-    const errText = await tokenRes.text()
-    throw new Error(`Token fetch failed: ${errText}`)
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch Spotify token")
   }
-  const { access_token } = await tokenRes.json()
-  return access_token
+
+  return res.json() as Promise<{ access_token: string }>
 }
 
-export async function POST(request: Request) {
-  try {
-    // Accept location in request body
-    const { seed_genres, limit = 10, location } = (await request.json()) as RecommendationRequest & { location?: string };
-    if (!seed_genres || seed_genres.length === 0) {
-      return NextResponse.json({ error: 'No seed_genres provided' }, { status: 400 })
-    }
-    const token = await fetchToken()
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url)
+  const mood = searchParams.get("mood") || ""
+  const country = searchParams.get("country") || "US"
 
-    // Get location from request or LocationService
-    let userLocation = location;
-    if (!userLocation) {
-      try {
-        const locData = await LocationService.getCurrentLocation();
-        userLocation = locData?.country;
-      } catch (e) {
-        userLocation = undefined;
-      }
-    }
-
-    // Get popular artists for location
-    // const popularArtists = userLocation ? MoodAnalyzer.getPopularArtists(userLocation) : [];
-    // Combine genres and artists for search
-    const queryParts = [...seed_genres];
-    const query = queryParts.join(' ');
-
-    // Search tracks via Spotify Search endpoint (using mood seed genres + local artists)
-    const searchRes = await fetch(
-      `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`,
-      { headers: { Authorization: `Bearer ${token}` } }
+  if (!mood) {
+    return NextResponse.json(
+      { error: "Mood query param is required" },
+      { status: 400 }
     )
-    if (!searchRes.ok) {
-      const errText = await searchRes.text()
-      throw new Error(`Search fetch failed: ${errText}`)
-    }
-    const searchJson = await searchRes.json()
-    const tracks: any[] = searchJson.tracks?.items || []
+  }
 
-    // Fetch audio features
-    const ids = tracks.map(t => t.id).join(',')
-    let featuresMap: Record<string, any> = {}
-    if (ids) {
-      const featRes = await fetch(`https://api.spotify.com/v1/audio-features?ids=${ids}`, {
-        headers: { Authorization: `Bearer ${token}` },
+  try {
+    // 1. Analyze mood
+    const analyzer = new MoodAnalyzer()
+    const analysis = analyzer.analyzeMood({ mood, countryCode: country })
+    const recs = analyzer.recommendSongs(analysis, 5) // curated suggestions
+
+    // 2. Get Spotify token
+    const { access_token } = await getSpotifyAccessToken()
+
+    // 3. Try to resolve curated songs → Spotify track IDs
+    const trackIds: string[] = []
+    for (const rec of recs) {
+      const q = encodeURIComponent(`${rec.title} ${rec.artist}`)
+      const res = await fetch(`${SPOTIFY_SEARCH_URL}?q=${q}&type=track&limit=1`, {
+        headers: { Authorization: `Bearer ${access_token}` },
       })
-      if (featRes.ok) {
-        const featJson = await featRes.json()
-        featJson.audio_features.forEach((f: any) => {
-          if (f && f.id) featuresMap[f.id] = f
-        })
+      if (res.ok) {
+        const json = await res.json()
+        if (json.tracks.items.length > 0) {
+          trackIds.push(json.tracks.items[0].id)
+        }
       }
     }
 
-    // Combine
-    const enriched = tracks.map(t => ({
-      ...t,
-      audio_features: featuresMap[t.id] || null,
-    }))
-    return NextResponse.json({ tracks: enriched })
+    // 4. Build seed genres from mood category
+    const seedGenresMap: Record<string, string[]> = {
+      happy: ["pop", "dance", "edm"],
+      sad: ["acoustic", "piano", "indie"],
+      chill: ["chill", "lofi", "ambient"],
+      energetic: ["workout", "edm", "hip-hop"],
+      party: ["party", "house", "dance"],
+      romantic: ["r-n-b", "soul", "pop"],
+      focused: ["focus", "study", "ambient"],
+    }
+    const seedGenres = seedGenresMap[analysis.category] || ["pop"]
+
+    // 5. Call Spotify recommendations API
+    const params = new URLSearchParams()
+    params.set("limit", "20")
+
+    if (seedGenres.length > 0) {
+      params.set("seed_genres", seedGenres.slice(0, 5).join(","))
+    }
+    if (trackIds.length > 0) {
+      params.set("seed_tracks", trackIds.slice(0, 5).join(","))
+    }
+
+    const recRes = await fetch(`${SPOTIFY_RECOMMENDATIONS_URL}?${params}`, {
+      headers: { Authorization: `Bearer ${access_token}` },
+    })
+
+    if (!recRes.ok) {
+      throw new Error("Spotify recommendations request failed")
+    }
+
+    const data = await recRes.json()
+
+    return NextResponse.json({
+      mood,
+      analysis,
+      seedTracks: trackIds,
+      seedGenres,
+      recommendations: data.tracks,
+    })
   } catch (err: any) {
-    console.error('Recommendations route error:', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    console.error(err)
+    return NextResponse.json(
+      { error: err.message || "Internal server error" },
+      { status: 500 }
+    )
   }
 }
