@@ -156,26 +156,6 @@ export function SwipeableCard({ song, onSwipeLeftAction, onSwipeRightAction, onP
                 </Badge>
               )) || <span>No genres available</span>}
             </div>
-            <div className="flex flex-wrap gap-2 mt-2">
-              <Badge
-                variant="secondary"
-                className="bg-purple-100 text-purple-800 text-xs"
-              >
-                {Math.round(song.audioFeatures?.energy * 100) || 0}% Energy
-              </Badge>
-              <Badge
-                variant="secondary"
-                className="bg-green-100 text-green-800 text-xs"
-              >
-                {Math.round(song.audioFeatures?.valence * 100) || 0}% Positivity
-              </Badge>
-              <Badge
-                variant="secondary"
-                className="bg-blue-100 text-blue-800 text-xs"
-              >
-                {Math.round(song.audioFeatures?.danceability * 100) || 0}% Dance
-              </Badge>
-            </div>
             {/* External link to Spotify */}
             {song.externalUrl && (
               <div className="mt-4">

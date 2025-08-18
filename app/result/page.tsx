@@ -39,16 +39,20 @@ function ResultsInner() {
         const res = await fetch(`/api/spotify/recommendations?mood=${encodeURIComponent(mood)}&country=${country}`)
         const data = await res.json()
 
-        if (data.tracks) {
+        console.log("API Response:", data) // Debugging log
+
+        if (Array.isArray(data.tracks)) {
           const mapped: Song[] = data.tracks.map((t: any) => ({
             id: t.id,
             name: t.name,
-            artist: t.artists.map((a: any) => a.name).join(", "),
+            artist: Array.isArray(t.artists) ? t.artists.map((a: any) => a.name).join(", ") : "Unknown Artist", // Defensive check
             previewUrl: t.preview_url,
-            externalUrl: t.external_urls.spotify,
+            externalUrl: t.external_urls?.spotify ?? "",
             imageUrl: t.album?.images?.[0]?.url,
           }))
           setSongs(mapped)
+        } else {
+          console.error("Unexpected data format for tracks:", data.tracks)
         }
       } catch (error) {
         console.error("Error fetching recommendations:", error)
