@@ -6,13 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ArrowLeft, Play, Pause, Heart, X, SkipForward } from "lucide-react"
 import { MoodAnalyzer } from "@/lib/mood"
-import { LocationService } from "@/lib/location-service"
-import { SpotifyService } from "@/lib/spotify-service"
-import type { Song, MoodAnalysis, LocationData } from "@/types"
+import type { Song, MoodAnalysis } from "@/types"
 import { LoadingAnimation } from "@/components/loading-animation"
 import { SwipeableCard } from "@/components/swipeable-card"
 import Player from "@/components/Player"
-
 
 const analyzer = new MoodAnalyzer()
 
@@ -22,7 +19,6 @@ function ResultsInner() {
   const [songs, setSongs] = useState<Song[]>([])
   const [currentSongIndex, setCurrentSongIndex] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [location, setLocation] = useState<LocationData | null>(null)
   const [moodAnalysis, setMoodAnalysis] = useState<MoodAnalysis | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [likedSongs, setLikedSongs] = useState<string[]>([])
@@ -34,44 +30,35 @@ function ResultsInner() {
 
   // Analyze mood
   const analysis = analyzer.analyzeMood({ mood, countryCode: country })
-  const recommendations = analyzer.recommendSongs(analysis)
 
   useEffect(() => {
-    const initializeData = async () => {
+    const fetchRecommendations = async () => {
       try {
-        const locationData = await LocationService.getCurrentLocation()
-        setLocation(locationData)
         setMoodAnalysis(analysis as unknown as MoodAnalysis | null)
 
-        // 🔑 Fetch all MoodAnalyzer suggestions in parallel
-        const spotifyResultsArrays = await Promise.all(
-          recommendations.map(async (rec) => {
-            try {
-              const result = await SpotifyService.searchSongs(
-                { ...analysis, keywords: [`${rec.title} ${rec.artist}`] } as any,
-                locationData
-              )
-              return result.length > 0 ? result[0] : null
-            } catch (err) {
-              console.error(`Failed fetching ${rec.title}`, err)
-              return null
-            }
-          })
-        )
+        const res = await fetch(`/api/spotify/recommendations?mood=${encodeURIComponent(mood)}&country=${country}`)
+        const data = await res.json()
 
-        // Flatten + filter nulls
-        const spotifyResults = spotifyResultsArrays.filter((s): s is Song => s !== null)
-
-        setSongs(spotifyResults)
+        if (data.tracks) {
+          const mapped: Song[] = data.tracks.map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            artist: t.artists.map((a: any) => a.name).join(", "),
+            previewUrl: t.preview_url,
+            externalUrl: t.external_urls.spotify,
+            imageUrl: t.album?.images?.[0]?.url,
+          }))
+          setSongs(mapped)
+        }
       } catch (error) {
-        console.error("Error loading data:", error)
+        console.error("Error fetching recommendations:", error)
       } finally {
         setLoading(false)
       }
     }
 
     if (mood) {
-      initializeData()
+      fetchRecommendations()
     }
   }, [mood])
 

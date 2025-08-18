@@ -15,58 +15,66 @@ interface SwipeableCardProps {
 }
 
 export function SwipeableCard({ song, onSwipeLeftAction, onSwipeRightAction, onPlayToggleAction, isPlaying }: SwipeableCardProps) {
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
-  const [isDragging, setIsDragging] = useState(false)
-  const startPos = useRef({ x: 0, y: 0 })
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const startPos = useRef({ x: 0, y: 0 });
 
   const handleDragStart = (x: number, y: number) => {
-    setIsDragging(true)
-    startPos.current = { x, y }
-  }
+    setIsDragging(true);
+    startPos.current = { x, y };
+  };
 
   const handleDragMove = (x: number, y: number) => {
-    if (!isDragging) return
-    const dx = x - startPos.current.x
-    const dy = y - startPos.current.y
-    setDragOffset({ x: dx, y: dy })
-  }
+    if (!isDragging) return;
+    const dx = x - startPos.current.x;
+    const dy = y - startPos.current.y;
+    setDragOffset({ x: dx, y: dy });
+  };
 
   const handleDragEnd = () => {
-    if (!isDragging) return
-    const threshold = 100
+    if (!isDragging) return;
+    const threshold = 100;
     if (Math.abs(dragOffset.x) > threshold) {
-      if (dragOffset.x > 0) onSwipeRightAction()
-      else onSwipeLeftAction()
+      if (dragOffset.x > 0) onSwipeRightAction();
+      else onSwipeLeftAction();
     }
-    setIsDragging(false)
-    setDragOffset({ x: 0, y: 0 })
-  }
+    setIsDragging(false);
+    setDragOffset({ x: 0, y: 0 });
+  };
 
   // Global mouse events when dragging
   useEffect(() => {
-    const onMouseMove = (e: MouseEvent) => handleDragMove(e.clientX, e.clientY)
-    const onMouseUp = () => handleDragEnd()
+    const onMouseMove = (e: MouseEvent) => handleDragMove(e.clientX, e.clientY);
+    const onMouseUp = () => handleDragEnd();
     if (isDragging) {
-      window.addEventListener("mousemove", onMouseMove)
-      window.addEventListener("mouseup", onMouseUp)
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
     }
     return () => {
-      window.removeEventListener("mousemove", onMouseMove)
-      window.removeEventListener("mouseup", onMouseUp)
-    }
-  }, [isDragging, dragOffset])
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [isDragging]);
 
-  const rotation = dragOffset.x * 0.1
-  const opacity = 1 - Math.min(Math.abs(dragOffset.x) / 300, 0.8)
+  const rotation = dragOffset.x * 0.1;
+  const opacity = 1 - Math.min(Math.abs(dragOffset.x) / 300, 0.8);
 
   return (
     <div className="relative w-full max-w-sm mx-auto">
       {/* Swipe indicators */}
       <div className="absolute inset-0 flex items-center justify-between px-4 z-10 pointer-events-none">
-        <div className={`${dragOffset.x < -50 ? "opacity-75" : "opacity-0"} bg-red-500 w-16 h-16 rounded-full flex items-center justify-center transition-opacity`}>
+        <div
+          className={`${
+            dragOffset.x < -50 ? "opacity-75" : "opacity-0"
+          } bg-red-500 w-16 h-16 rounded-full flex items-center justify-center transition-opacity`}
+        >
           <span className="text-white text-2xl">✕</span>
         </div>
-        <div className={`${dragOffset.x > 50 ? "opacity-75" : "opacity-0"} bg-green-500 w-16 h-16 rounded-full flex items-center justify-center transition-opacity`}>
+        <div
+          className={`${
+            dragOffset.x > 50 ? "opacity-75" : "opacity-0"
+          } bg-green-500 w-16 h-16 rounded-full flex items-center justify-center transition-opacity`}
+        >
           <span className="text-white text-2xl">♥</span>
         </div>
       </div>
@@ -76,16 +84,18 @@ export function SwipeableCard({ song, onSwipeLeftAction, onSwipeRightAction, onP
         style={{
           transform: `translate(${dragOffset.x}px, ${dragOffset.y * 0.3}px) rotate(${rotation}deg)`,
           opacity,
-          transition: isDragging ? "none" : "transform 0.3s ease-out, opacity 0.3s ease-out",
+          transition: isDragging
+            ? "none"
+            : "transform 0.3s ease-out, opacity 0.3s ease-out",
         }}
-        onMouseDown={e => handleDragStart(e.clientX, e.clientY)}
-        onTouchStart={e => {
-          const t = e.touches[0]
-          handleDragStart(t.clientX, t.clientY)
+        onMouseDown={(e) => handleDragStart(e.clientX, e.clientY)}
+        onTouchStart={(e) => {
+          const t = e.touches[0];
+          handleDragStart(t.clientX, t.clientY);
         }}
-        onTouchMove={e => {
-          const t = e.touches[0]
-          handleDragMove(t.clientX, t.clientY)
+        onTouchMove={(e) => {
+          const t = e.touches[0];
+          handleDragMove(t.clientX, t.clientY);
         }}
         onTouchEnd={handleDragEnd}
       >
@@ -93,34 +103,44 @@ export function SwipeableCard({ song, onSwipeLeftAction, onSwipeRightAction, onP
           {/* Album Art */}
           <div className="relative">
             <img
-              src={song.albumArt || '/placeholder.jpg'}
-              alt={`${song.album} artwork`}
+              src={song.albumArt || "/placeholder.jpg"}
+              alt={`${song.album || "Unknown Album"} artwork`}
               className="w-full h-80 object-cover"
               draggable={false}
             />
             {/* Play/Pause Overlay */}
             <div
               className="absolute inset-0 flex items-center justify-center bg-black/25 opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
-              onClick={e => {
-                e.stopPropagation()
-                onPlayToggleAction()
+              onClick={(e) => {
+                e.stopPropagation();
+                onPlayToggleAction();
               }}
             >
               <div className="bg-white rounded-full w-16 h-16 flex items-center justify-center">
-                {isPlaying ? <Pause className="w-8 h-8 text-gray-800" /> : <Play className="w-8 h-8 text-gray-800" />}
+                {isPlaying ? (
+                  <Pause className="w-8 h-8 text-gray-800" />
+                ) : (
+                  <Play className="w-8 h-8 text-gray-800" />
+                )}
               </div>
             </div>
           </div>
 
           {/* Song Details */}
           <div className="px-6 py-4 space-y-2">
-            <h3 className="text-xl font-semibold text-gray-800 leading-tight truncate">{song.name}</h3>
-            <p className="text-sm text-gray-600 truncate">{song.artist}</p>
-            <p className="text-sm text-gray-500 truncate">{song.album}</p>
+            <h3 className="text-xl font-semibold text-gray-800 leading-tight truncate">
+              {song.name || "Unknown Song"}
+            </h3>
+            <p className="text-sm text-gray-600 truncate">
+              {song.artist || "Unknown Artist"}
+            </p>
+            <p className="text-sm text-gray-500 truncate">
+              {song.album || "Unknown Album"}
+            </p>
             <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
               <div className="flex items-center gap-1">
                 <Clock className="w-4 h-4" />
-                <span>{song.duration}</span>
+                <span>{song.duration || "--:--"}</span>
               </div>
               {song.isPopularInRegion && (
                 <div className="flex items-center gap-1">
@@ -130,27 +150,41 @@ export function SwipeableCard({ song, onSwipeLeftAction, onSwipeRightAction, onP
               )}
             </div>
             <div className="flex flex-wrap gap-1 mt-2">
-              {song.genres.map(genre => (
+              {song.genres?.map((genre) => (
                 <Badge key={genre} variant="outline" className="text-xs">
                   {genre}
                 </Badge>
-              ))}
+              )) || <span>No genres available</span>}
             </div>
             <div className="flex flex-wrap gap-2 mt-2">
-              <Badge variant="secondary" className="bg-purple-100 text-purple-800 text-xs">
-                {Math.round(song.audioFeatures.energy * 100)}% Energy
+              <Badge
+                variant="secondary"
+                className="bg-purple-100 text-purple-800 text-xs"
+              >
+                {Math.round(song.audioFeatures?.energy * 100) || 0}% Energy
               </Badge>
-              <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
-                {Math.round(song.audioFeatures.valence * 100)}% Positivity
+              <Badge
+                variant="secondary"
+                className="bg-green-100 text-green-800 text-xs"
+              >
+                {Math.round(song.audioFeatures?.valence * 100) || 0}% Positivity
               </Badge>
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
-                {Math.round(song.audioFeatures.danceability * 100)}% Dance
+              <Badge
+                variant="secondary"
+                className="bg-blue-100 text-blue-800 text-xs"
+              >
+                {Math.round(song.audioFeatures?.danceability * 100) || 0}% Dance
               </Badge>
             </div>
             {/* External link to Spotify */}
             {song.externalUrl && (
               <div className="mt-4">
-                <a href={song.externalUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline">
+                <a
+                  href={song.externalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 underline"
+                >
                   Play Full Track on Spotify
                 </a>
               </div>
@@ -159,5 +193,5 @@ export function SwipeableCard({ song, onSwipeLeftAction, onSwipeRightAction, onP
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
