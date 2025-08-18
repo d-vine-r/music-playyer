@@ -13,6 +13,7 @@ import { LoadingAnimation } from "@/components/loading-animation"
 import { SwipeableCard } from "@/components/swipeable-card"
 import Player from "@/components/Player"
 
+
 const analyzer = new MoodAnalyzer()
 
 function ResultsInner() {
@@ -40,14 +41,14 @@ function ResultsInner() {
       try {
         const locationData = await LocationService.getCurrentLocation()
         setLocation(locationData)
-        setMoodAnalysis(analysis)
+        setMoodAnalysis(analysis as unknown as MoodAnalysis | null)
 
         // 🔑 Fetch all MoodAnalyzer suggestions in parallel
         const spotifyResultsArrays = await Promise.all(
           recommendations.map(async (rec) => {
             try {
               const result = await SpotifyService.searchSongs(
-                { ...analysis, keywords: [`${rec.title} ${rec.artist}`] },
+                { ...analysis, keywords: [`${rec.title} ${rec.artist}`] } as any,
                 locationData
               )
               return result.length > 0 ? result[0] : null
