@@ -55,9 +55,9 @@ export async function POST(request: Request) {
     }
 
     // Get popular artists for location
-    const popularArtists = userLocation ? MoodAnalyzer.getPopularArtists(userLocation) : [];
+    // const popularArtists = userLocation ? MoodAnalyzer.getPopularArtists(userLocation) : [];
     // Combine genres and artists for search
-    const queryParts = [...seed_genres, ...popularArtists];
+    const queryParts = [...seed_genres];
     const query = queryParts.join(' ');
 
     // Search tracks via Spotify Search endpoint (using mood seed genres + local artists)
