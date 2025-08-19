@@ -15,6 +15,8 @@ export class SpotifyService {
       imageUrl: track.album?.images?.[0]?.url || "/default-art.png", // fallback
       album: track.album?.name,
       releaseDate: track.album?.release_date,
+      audioFeatures: track.audio_features,
+      isPopularInRegion: track.popularity,
       popularity: track.popularity,
     }
   }

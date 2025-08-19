@@ -8,14 +8,14 @@ import * as React from 'react';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import { styled } from '@mui/material/styles';
-import Image from "next/image";
+import Image, { type StaticImageData } from "next/image";
 
 interface Props {
   className?: string;
   audioUrl?: string;
   title?: string;
   artist?: string;
-  audioImg?: any;
+  audioImg?: string | StaticImageData;
 }
 
 const TinyText = styled(Typography)({
@@ -101,8 +101,10 @@ export const Player = ({className, audioUrl, title, artist, audioImg}: Props) =>
 
     return (
         <section className={clsx("bg-gradient-to-br from-purple-900 to-violet-800 rounded-t shadow justify-around w-screen sticky bottom-0 z-50 flex", className)}>
-            <section className="flex-start flex align-left gap-4">
-                <Image src={audioImg} width={100} height={40} alt="/placeholder.jpg"/>
+            <section className="flex-start flex items-center align-left gap-4">
+                <div className="rounded-md overflow-hidden w-16 h-16 justify-center items-center flex">
+                    <Image src={audioImg ?? '/placeholder.jpg'} width={100} height={40} alt={title ? `${title} cover art` : 'Cover art'} />
+                </div>
                 <div className="flex-col items-left text-white  gap-4 p-4">
                     <h3>{title || 'Nothing Yet'}</h3>
                     <p>{artist || 'Mr Thompson'}</p>

@@ -38,17 +38,33 @@ function ResultsInner() {
         setMoodAnalysis(analysis as unknown as MoodAnalysis | null)
 
         const res = await fetch(`/api/spotify/recommendations?mood=${encodeURIComponent(mood)}&country=${country}`)
+
+        // Handle non-2xx responses explicitly
+        if (!res.ok) {
+          let serverError: any = null
+          try {
+            serverError = await res.json()
+          } catch (_) {
+            // ignore JSON parse error and fall back to status text
+          }
+          const message = serverError?.error || `Request failed (${res.status})`
+          console.error("Recommendations API error:", message)
+          setSongs([])
+          return
+        }
+
         const data = await res.json()
+        console.log("API Response:", data)
 
-        console.log("API Response:", data) // Debugging log
-
-        if (data.tracks) {
+        if (Array.isArray(data?.tracks)) {
           setSongs(SpotifyService.mapSpotifyTracks(data.tracks))
         } else {
-          console.error("Unexpected data format for tracks:", data.tracks)
+          console.error("Unexpected data format for tracks:", data?.tracks)
+          setSongs([])
         }
       } catch (error) {
         console.error("Error fetching recommendations:", error)
+        setSongs([])
       } finally {
         setLoading(false)
       }
@@ -83,10 +99,12 @@ function ResultsInner() {
     }
   }
 
-  const togglePlay = () => {}
+  const togglePlay = () => {
+    setIsPlaying(prev => !prev);
+  }
 
   if (loading) {
-    return <LoadingAnimation mood={mood} keywords={analysis.keywords} />
+    return <LoadingAnimation mood={mood} keywords={analysis?.keywords || []} />
   }
 
   if (!currentSong) {
@@ -190,12 +208,16 @@ function ResultsInner() {
           <p>Swipe left to dismiss • Swipe right to like • Tap to play</p>
         </div>
 
+      </div>
+      
+      <div className="flex w-full h-auto justify-center mt-8">
         {/* Player */}
-        <div className="flex w-screen h-auto justify-center mt-8">
+        <div className="flex w-full h-auto justify-center mt-8">
           <Player
             audioUrl={currentSong.previewUrl}
             title={currentSong.name}
             artist={currentSong.artist}
+            audioImg={currentSong.imageUrl || currentSong.albumArt}
           />
         </div>
       </div>
