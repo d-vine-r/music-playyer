@@ -6,11 +6,14 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ArrowLeft, Play, Pause, Heart, X, SkipForward } from "lucide-react"
 import { MoodAnalyzer } from "@/lib/mood"
-import type { Song, MoodAnalysis } from "@/types"
+import type { Song } from "@/types"
+import type { MoodAnalysis } from "@/lib/mood"
 import { LoadingAnimation } from "@/components/loading-animation"
 import { SwipeableCard } from "@/components/swipeable-card"
 import Player from "@/components/Player"
+import { toast } from "sonner"
 import { SpotifyService } from "@/lib/spotify-service"
+import { YTMusicExtractor, initYTMusic } from "@/lib/ytmusic-extractor"
 
 const analyzer = new MoodAnalyzer()
 
@@ -24,6 +27,7 @@ function ResultsInner() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [likedSongs, setLikedSongs] = useState<string[]>([])
   const [dismissedSongs, setDismissedSongs] = useState<string[]>([])
+  const [ytUrl, setYtUrl] = useState<string | null>(null)
 
   // Mood input
   const mood = searchParams.get("mood") || ""
@@ -33,38 +37,21 @@ function ResultsInner() {
   const analysis = analyzer.analyzeMood({ mood, countryCode: country })
 
   useEffect(() => {
+    
     const fetchRecommendations = async () => {
       try {
-        setMoodAnalysis(analysis as unknown as MoodAnalysis | null)
+        setMoodAnalysis(analysis)
 
-        const res = await fetch(`/api/spotify/recommendations?mood=${encodeURIComponent(mood)}&country=${country}`)
-
-        // Handle non-2xx responses explicitly
-        if (!res.ok) {
-          let serverError: any = null
-          try {
-            serverError = await res.json()
-          } catch (_) {
-            // ignore JSON parse error and fall back to status text
-          }
-          const message = serverError?.error || `Request failed (${res.status})`
-          console.error("Recommendations API error:", message)
-          setSongs([])
-          return
-        }
-
+        const res = await fetch(
+          `/api/spotify/recommendations?mood=${encodeURIComponent(mood)}&country=${country}`
+        )
         const data = await res.json()
-        console.log("API Response:", data)
 
-        if (Array.isArray(data?.tracks)) {
+        if (data.tracks) {
           setSongs(SpotifyService.mapSpotifyTracks(data.tracks))
-        } else {
-          console.error("Unexpected data format for tracks:", data?.tracks)
-          setSongs([])
         }
       } catch (error) {
         console.error("Error fetching recommendations:", error)
-        setSongs([])
       } finally {
         setLoading(false)
       }
@@ -76,8 +63,9 @@ function ResultsInner() {
   }, [mood])
 
   const currentSong = songs[currentSongIndex]
-  const remainingSongs = songs.length - currentSongIndex - dismissedSongs.length - likedSongs.length
-
+  const remainingSongs =
+  songs.length - currentSongIndex - dismissedSongs.length - likedSongs.length
+  
   const handleSwipeLeft = () => {
     if (currentSong) {
       setDismissedSongs((prev) => [...prev, currentSong.id])
@@ -94,17 +82,44 @@ function ResultsInner() {
 
   const nextSong = () => {
     setIsPlaying(false)
+    setYtUrl(null)
     if (currentSongIndex < songs.length - 1) {
       setCurrentSongIndex((prev) => prev + 1)
     }
   }
 
-  const togglePlay = () => {
-    setIsPlaying(prev => !prev);
+  const togglePlay = async () => {
+    if (!currentSong) return
+
+    if (isPlaying) {
+      setIsPlaying(false)
+      return
+    }
+
+    try {
+      // Try finding the song on YT Music
+      const ytResults = await YTMusicExtractor.searchSongs(
+        `${currentSong.name} ${currentSong.artist}`,
+        1
+      )
+      
+      if (ytResults.length > 0) {
+        if (ytResults[0].externalUrl) {
+          setYtUrl(ytResults[0].externalUrl)
+          setIsPlaying(true)
+        } else {
+          setYtUrl(null)
+          toast.error("Unable to play song on YouTube Music")
+        }
+      }
+    } catch (err) {
+      console.error("YTMusic search error:", err)
+      toast.error("Unable to play song on YouTube Music")
+    }
   }
 
   if (loading) {
-    return <LoadingAnimation mood={mood} keywords={analysis?.keywords || []} />
+    return <LoadingAnimation mood={mood} keywords={analysis.keywords} />
   }
 
   if (!currentSong) {
@@ -112,8 +127,13 @@ function ResultsInner() {
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
         <div className="text-center text-white">
           <h2 className="text-2xl font-bold mb-4">All done! 🎉</h2>
-          <p className="text-blue-200 mb-6">You've gone through all the songs for this mood.</p>
-          <Button onClick={() => router.push("/")} className="bg-purple-600 hover:bg-purple-700">
+          <p className="text-blue-200 mb-6">
+            You've gone through all the songs for this mood.
+          </p>
+          <Button
+            onClick={() => router.push("/")}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
             Discover More Music
           </Button>
         </div>
@@ -126,7 +146,11 @@ function ResultsInner() {
       <div className="container mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <Button variant="ghost" onClick={() => router.push("/")} className="text-white hover:bg-white/20">
+          <Button
+            variant="ghost"
+            onClick={() => router.push("/")}
+            className="text-white hover:bg-white/20"
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
@@ -136,7 +160,11 @@ function ResultsInner() {
             <p className="text-blue-200 text-sm">{remainingSongs} songs remaining</p>
           </div>
 
-          <Button variant="ghost" onClick={nextSong} className="text-white hover:bg-white/20">
+          <Button
+            variant="ghost"
+            onClick={nextSong}
+            className="text-white hover:bg-white/20"
+          >
             <SkipForward className="w-4 h-4" />
           </Button>
         </div>
@@ -147,15 +175,21 @@ function ResultsInner() {
             <CardContent className="p-4">
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <div className="text-lg font-bold text-purple-300">{analysis.facets.energy}</div>
+                  <div className="text-lg font-bold text-purple-300">
+                    {analysis.facets.energy}
+                  </div>
                   <div className="text-xs text-blue-200">Energy</div>
                 </div>
                 <div>
-                  <div className="text-lg font-bold text-green-300">{analysis.facets.valence}</div>
+                  <div className="text-lg font-bold text-green-300">
+                    {analysis.facets.valence}
+                  </div>
                   <div className="text-xs text-blue-200">Positivity</div>
                 </div>
                 <div>
-                  <div className="text-lg font-bold text-yellow-300">{analysis.facets.tempo}</div>
+                  <div className="text-lg font-bold text-yellow-300">
+                    {analysis.facets.tempo}
+                  </div>
                   <div className="text-xs text-blue-200">Tempo</div>
                 </div>
               </div>
@@ -208,17 +242,23 @@ function ResultsInner() {
           <p>Swipe left to dismiss • Swipe right to like • Tap to play</p>
         </div>
 
-      </div>
-      
-      <div className="flex w-full h-auto justify-center mt-8">
         {/* Player */}
-        <div className="flex w-full h-auto justify-center mt-8">
-          <Player
-            audioUrl={currentSong.previewUrl}
-            title={currentSong.name}
-            artist={currentSong.artist}
-            audioImg={currentSong.imageUrl || currentSong.albumArt}
-          />
+        <div className="flex justify-center mt-8">
+          {ytUrl ? (
+            <iframe
+              src={ytUrl.replace("watch?v=", "embed/")}
+              width="320"
+              height="180"
+              allow="autoplay; encrypted-media"
+              className="rounded-xl shadow-lg"
+            ></iframe>
+          ) : (
+            <Player
+              audioUrl={currentSong.previewUrl}
+              title={currentSong.name}
+              artist={currentSong.artist}
+            />
+          )}
         </div>
       </div>
     </div>
